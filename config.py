@@ -1,0 +1,1 @@
+# config.py – future global configuration
