@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import (
     QLabel, QTextEdit, QPushButton, QCheckBox, QComboBox, QMenu,
     QInputDialog
 )
-from PyQt5.QtCore import Qt, QThreadPool
-from PyQt5.QtGui import QIcon, QKeySequence, QGuiApplication
+from PyQt5.QtCore import Qt, QThreadPool, QEvent
+from PyQt5.QtGui import QIcon, QKeySequence, QGuiApplication, QCursor
 
 from core.image_loader import ImageLoader
 from core.metadata_reader import MetadataReader
@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         self.update_status()
         self.setAcceptDrops(True)
+        QApplication.instance().installEventFilter(self)
 
         # Connect navigation signals
         self.nav.folder_loaded.connect(self._on_folder_loaded)
@@ -1143,6 +1144,30 @@ class MainWindow(QMainWindow):
         self.settings.startup_workspace = "Default"
         self.status_label.setText("Startup workspace reset to: Default")
 
+    FILMSTRIP_REVEAL_ZONE_PX = 16
+
+    def eventFilter(self, obj, event):
+        """App-wide filter: the filmstrip itself receives zero mouse events
+        once hidden, so the only way to bring it back on hover is to watch
+        for the cursor approaching the strip of screen (right above the
+        status bar) where it normally lives."""
+        if event.type() == QEvent.MouseMove:
+            if self.filmstrip.auto_hide_enabled() and not self.filmstrip.isVisible():
+                cursor_pos = QCursor.pos()
+                win_top_left = self.mapToGlobal(self.rect().topLeft())
+                win_bottom_right = self.mapToGlobal(self.rect().bottomRight())
+                within_window_x = win_top_left.x() <= cursor_pos.x() <= win_bottom_right.x()
+
+                status_top_y = (
+                    self.status_bar.mapToGlobal(self.status_bar.rect().topLeft()).y()
+                    if self.status_bar.isVisible() else win_bottom_right.y()
+                )
+                near_bottom = (status_top_y - self.FILMSTRIP_REVEAL_ZONE_PX) <= cursor_pos.y() <= status_top_y
+
+                if within_window_x and near_bottom:
+                    self.filmstrip.show_and_reset_timer()
+        return super().eventFilter(obj, event)
+
     def closeEvent(self, event):
         if self.tag_manager.dirty:
             reply = QMessageBox.question(
@@ -1153,6 +1178,7 @@ class MainWindow(QMainWindow):
             if reply == QMessageBox.No:
                 event.ignore()
                 return
+        QApplication.instance().removeEventFilter(self)
         self.settings.save_window_geometry(self)
         event.accept()
 
