@@ -30,6 +30,9 @@ from ui.dataset_audit import DatasetAudit
 from ui.smart_tools import SmartTools
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.batch_dialog import BatchDialog
+from ui.dialogs.workspace_save_dialog import SaveWorkspaceDialog
+from ui.dialogs.workspace_manager_dialog import WorkspaceManagerDialog
+from core.workspace_manager import WorkspaceManager
 from ui.text_editor import TextEditor
 
 import logging
@@ -60,6 +63,9 @@ class MainWindow(QMainWindow):
         self.current_ai_metadata = None
         self.show_raw_metadata = False
         self.current_folder = None
+
+        self.workspace_manager = WorkspaceManager()
+        self.current_workspace_name = ""
 
         self.setup_ui()
         self.update_status()
@@ -106,9 +112,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         # Toolbar
-        toolbar = self.addToolBar("Main")
-        toolbar.setMovable(False)
-        toolbar.setObjectName("MainToolbar")
+        self.main_toolbar = self.addToolBar("Main")
+        self.main_toolbar.setMovable(False)
+        self.main_toolbar.setObjectName("MainToolbar")
+        toolbar = self.main_toolbar
 
         open_action = QAction("📂 Open Folder", self)
         open_action.triggered.connect(self.open_folder)
@@ -178,11 +185,21 @@ class MainWindow(QMainWindow):
         text_editor_action.triggered.connect(self.open_text_editor)
         toolbar.addAction(text_editor_action)
 
+        toolbar.addSeparator()
+
+        # Workspaces button
+        self.workspace_menu_btn = QPushButton("🖥 Workspaces ▾")
+        self.workspace_menu_btn.setStyleSheet(
+            "QPushButton { padding: 4px 10px; font-size: 12px; }"
+        )
+        self.workspace_menu_btn.clicked.connect(self._show_workspace_menu)
+        toolbar.addWidget(self.workspace_menu_btn)
+
         # Main splitter: left side (image viewer + folder tree) | right side (tabs)
-        main_splitter = QSplitter(Qt.Horizontal)
+        self.main_splitter = QSplitter(Qt.Horizontal)
         # Don't let either side collapse to 0 width when dragged too far -
         # that's what makes the handle feel like it "went off screen".
-        main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.setChildrenCollapsible(False)
 
         # Left side: vertical splitter with image viewer and folder tree
         left_widget = QWidget()
@@ -190,33 +207,33 @@ class MainWindow(QMainWindow):
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
-        left_splitter = QSplitter(Qt.Vertical)
+        self.left_splitter = QSplitter(Qt.Vertical)
         # Left collapsible on purpose: this lets you pull the folder tree
         # all the way down to give the image full height, same as before.
         self.image_viewer = ImageViewer()
         self.image_viewer.context_menu_requested.connect(self._show_image_context_menu)
-        left_splitter.addWidget(self.image_viewer)
+        self.left_splitter.addWidget(self.image_viewer)
 
         self.folder_tree = FolderTree()
         self.folder_tree.file_selected.connect(self._on_file_selected_from_tree)
         self.folder_tree.folder_selected.connect(self._on_folder_selected_from_tree)
-        left_splitter.addWidget(self.folder_tree)
-        left_splitter.setSizes([500, 200])
+        self.left_splitter.addWidget(self.folder_tree)
+        self.left_splitter.setSizes([500, 200])
 
-        left_layout.addWidget(left_splitter)
-        main_splitter.addWidget(left_widget)
+        left_layout.addWidget(self.left_splitter)
+        self.main_splitter.addWidget(left_widget)
 
         # Right side: tabs
-        right_panel = QTabWidget()
-        right_panel.setMinimumWidth(300)
+        self.right_panel = QTabWidget()
+        self.right_panel.setMinimumWidth(300)
 
         # Tags tab
         self.tag_panel = TagPanel(self.tag_manager, self.danbooru_client, tag_db=self.tag_db)
-        right_panel.addTab(self.tag_panel, "🏷️ Tags")
+        self.right_panel.addTab(self.tag_panel, "🏷️ Tags")
 
         # EXIF Metadata tab
         self.metadata_panel = MetadataPanel()
-        right_panel.addTab(self.metadata_panel, "📋 Metadata")
+        self.right_panel.addTab(self.metadata_panel, "📋 Metadata")
 
         # AI Metadata tab
         ai_metadata_widget = QWidget()
@@ -247,35 +264,35 @@ class MainWindow(QMainWindow):
         self.ai_metadata_panel.setPlaceholderText("No AI metadata found.")
         ai_layout.addWidget(self.ai_metadata_panel)
 
-        right_panel.addTab(ai_metadata_widget, "🧠 AI Metadata")
+        self.right_panel.addTab(ai_metadata_widget, "🧠 AI Metadata")
 
         # Prompt Builder tab
         self.prompt_builder = PromptBuilder(self.danbooru_client, tag_db=self.tag_db)
         self.prompt_builder.prompt_changed.connect(self._on_prompt_builder_apply)
         self.prompt_builder.seed_requested.connect(self._on_seed_requested)
         self.prompt_builder.grouping_completed.connect(self._on_grouping_completed)
-        right_panel.addTab(self.prompt_builder, "📝 Prompt Builder")
+        self.right_panel.addTab(self.prompt_builder, "📝 Prompt Builder")
 
         # Statistics Dashboard tab
         self.stats_dashboard = StatisticsDashboard()
-        right_panel.addTab(self.stats_dashboard, "📊 Statistics")
+        self.right_panel.addTab(self.stats_dashboard, "📊 Statistics")
 
         # Duplicate Finder tab
         self.duplicate_finder = DuplicateFinder()
-        right_panel.addTab(self.duplicate_finder, "🔍 Duplicates")
+        self.right_panel.addTab(self.duplicate_finder, "🔍 Duplicates")
 
         # Dataset Audit tab
         self.dataset_audit = DatasetAudit()
-        right_panel.addTab(self.dataset_audit, "📋 Dataset Audit")
+        self.right_panel.addTab(self.dataset_audit, "📋 Dataset Audit")
 
         # Smart Tools tab
         self.smart_tools = SmartTools()
         self.smart_tools.filter_applied.connect(self._on_smart_collection_applied)
-        right_panel.addTab(self.smart_tools, "🧠 Smart Tools")
+        self.right_panel.addTab(self.smart_tools, "🧠 Smart Tools")
 
-        main_splitter.addWidget(right_panel)
-        main_splitter.setSizes([600, 400])
-        layout.addWidget(main_splitter)
+        self.main_splitter.addWidget(self.right_panel)
+        self.main_splitter.setSizes([600, 400])
+        layout.addWidget(self.main_splitter)
 
         # Filmstrip
         self.filmstrip = Filmstrip(self.image_loader)
@@ -794,6 +811,277 @@ class MainWindow(QMainWindow):
 
         QMessageBox.information(self, "Batch Complete", f"Modified {modified_count} files.")
         self.nav.refresh()
+
+    # ── Workspace management ─────────────────────────────────────────
+
+    def _show_workspace_menu(self):
+        """Show the Workspaces dropdown menu."""
+        menu = QMenu(self)
+
+        names = self.workspace_manager.list_workspaces()
+
+        # Default always first
+        if "Default" in names:
+            act = menu.addAction("Default")
+            act.triggered.connect(lambda checked, n="Default": self._load_workspace(n))
+            names.remove("Default")
+            if names:
+                menu.addSeparator()
+
+        for name in names:
+            act = menu.addAction(name)
+            act.triggered.connect(lambda checked, n=name: self._load_workspace(n))
+
+        menu.addSeparator()
+        menu.addAction("Save Current View…").triggered.connect(self._save_workspace_dialog)
+        menu.addAction("Rename View").triggered.connect(self._rename_workspace_dialog)
+        menu.addAction("Duplicate View").triggered.connect(self._duplicate_workspace_dialog)
+        menu.addAction("Delete View").triggered.connect(self._delete_workspace_dialog)
+        menu.addSeparator()
+        menu.addAction("Export View").triggered.connect(self._export_workspace_dialog)
+        menu.addAction("Import View").triggered.connect(self._import_workspace_dialog)
+        menu.addSeparator()
+        menu.addAction("Manage Workspaces…").triggered.connect(self._open_workspace_manager)
+
+        menu.exec_(self.workspace_menu_btn.mapToGlobal(
+            self.workspace_menu_btn.rect().bottomLeft()
+        ))
+
+    def _capture_workspace_state(self) -> dict:
+        """Capture the complete UI state into a serialisable dict."""
+        state = {
+            "window": {
+                "width": self.width(),
+                "height": self.height(),
+                "x": self.x(),
+                "y": self.y(),
+                "maximized": self.isMaximized(),
+            },
+            "splitters": {
+                "main": self.main_splitter.sizes(),
+                "left": self.left_splitter.sizes(),
+            },
+            "right_panel": {
+                "selected_tab": self.right_panel.currentIndex(),
+            },
+            "panels": {
+                "image_viewer_visible": self.image_viewer.isVisible(),
+                "folder_tree_visible": self.folder_tree.isVisible(),
+                "filmstrip_visible": self.filmstrip.isVisible(),
+                "toolbar_visible": self.main_toolbar.isVisible(),
+                "status_bar_visible": self.status_bar.isVisible(),
+                "right_panel_visible": self.right_panel.isVisible(),
+            },
+            "filmstrip": {
+                "height": self.filmstrip.height(),
+                "icon_size": 100,
+            },
+            "sort_order": self.sort_combo.currentText(),
+            "application_version": "1.0.0",
+        }
+        return state
+
+    def _restore_workspace_state(self, state: dict):
+        """Apply a saved workspace state to the UI."""
+        if not isinstance(state, dict):
+            return
+
+        # Window geometry
+        win = state.get("window", {})
+        if win.get("maximized"):
+            self.showMaximized()
+        else:
+            w = win.get("width")
+            h = win.get("height")
+            if w and h:
+                self.resize(w, h)
+            x = win.get("x")
+            y = win.get("y")
+            if x is not None and y is not None:
+                self.move(x, y)
+
+        # Splitters
+        splitters = state.get("splitters", {})
+        main_sizes = splitters.get("main")
+        if main_sizes and len(main_sizes) == 2:
+            self.main_splitter.setSizes(main_sizes)
+        left_sizes = splitters.get("left")
+        if left_sizes and len(left_sizes) == 2:
+            self.left_splitter.setSizes(left_sizes)
+
+        # Right panel tab
+        rp = state.get("right_panel", {})
+        tab_idx = rp.get("selected_tab")
+        if tab_idx is not None and 0 <= tab_idx < self.right_panel.count():
+            self.right_panel.setCurrentIndex(tab_idx)
+
+        # Panel visibility
+        panels = state.get("panels", {})
+        self.image_viewer.setVisible(panels.get("image_viewer_visible", True))
+        self.folder_tree.setVisible(panels.get("folder_tree_visible", True))
+        self.filmstrip.setVisible(panels.get("filmstrip_visible", True))
+        self.main_toolbar.setVisible(panels.get("toolbar_visible", True))
+        self.status_bar.setVisible(panels.get("status_bar_visible", True))
+        self.right_panel.setVisible(panels.get("right_panel_visible", True))
+
+        # Filmstrip height
+        fs = state.get("filmstrip", {})
+        fh = fs.get("height")
+        if fh and fh > 0:
+            self.filmstrip.setMinimumHeight(min(fh, 120))
+            self.filmstrip.setFixedHeight(fh) if panels.get("filmstrip_visible", True) else None
+
+        # Sort order
+        sort = state.get("sort_order")
+        if sort:
+            self.sort_combo.setCurrentText(sort)
+
+    def _load_workspace(self, name: str):
+        """Load a workspace by name."""
+        data = self.workspace_manager.load(name)
+        if data is None:
+            QMessageBox.warning(self, "Load Failed", f"Could not load workspace '{name}'.")
+            return
+        self.current_workspace_name = name
+        self._restore_workspace_state(data)
+        self.setWindowTitle(f"🧊 Booru Tag Editor Pro++ — {name}")
+
+    def _save_workspace_dialog(self):
+        """Open the Save Workspace dialog."""
+        names = self.workspace_manager.list_workspaces()
+        dlg = SaveWorkspaceDialog(self, names, current_name=self.current_workspace_name)
+        if dlg.exec_():
+            name = dlg.result_name()
+            state = self._capture_workspace_state()
+            self.workspace_manager.save(name, state, overwrite=True)
+            self.current_workspace_name = name
+            self.setWindowTitle(f"🧊 Booru Tag Editor Pro++ — {name}")
+            self.status_label.setText(f"Workspace saved: {name}")
+
+    def _rename_workspace_dialog(self):
+        """Rename the current workspace."""
+        name = self.current_workspace_name
+        if not name:
+            QMessageBox.information(self, "No Workspace", "No workspace is currently active.")
+            return
+        new_name, ok = QInputDialog.getText(self, "Rename Workspace", "New name:", text=name)
+        if ok and new_name.strip() and new_name.strip() != name:
+            if self.workspace_manager.rename(name, new_name.strip()):
+                self.current_workspace_name = new_name.strip()
+                self.setWindowTitle(f"🧊 Booru Tag Editor Pro++ — {new_name.strip()}")
+                self.status_label.setText(f"Workspace renamed: {new_name.strip()}")
+
+    def _duplicate_workspace_dialog(self):
+        """Duplicate the current workspace."""
+        name = self.current_workspace_name
+        if not name:
+            QMessageBox.information(self, "No Workspace", "No workspace is currently active.")
+            return
+        new_name, ok = QInputDialog.getText(
+            self, "Duplicate Workspace", "New name:", text=f"{name} Copy"
+        )
+        if ok and new_name.strip():
+            if self.workspace_manager.duplicate(name, new_name.strip()):
+                self.status_label.setText(f"Workspace duplicated: {new_name.strip()}")
+
+    def _delete_workspace_dialog(self):
+        """Delete the current workspace."""
+        name = self.current_workspace_name
+        if not name:
+            QMessageBox.information(self, "No Workspace", "No workspace is currently active.")
+            return
+        reply = QMessageBox.question(
+            self, "Delete Workspace",
+            f"Delete workspace '{name}'?\nThis cannot be undone.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            if self.workspace_manager.delete(name):
+                self.current_workspace_name = ""
+                self.setWindowTitle("🧊 Booru Tag Editor++")
+                self.status_label.setText(f"Workspace deleted: {name}")
+
+    def _export_workspace_dialog(self):
+        """Export the current workspace to a file."""
+        name = self.current_workspace_name
+        if not name:
+            QMessageBox.information(self, "No Workspace", "No workspace is currently active.")
+            return
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Export Workspace", f"{name}.workspace.json",
+            "Workspace Files (*.workspace.json);;All Files (*)",
+        )
+        if dest:
+            try:
+                self.workspace_manager.export_workspace(name, dest)
+                self.status_label.setText(f"Workspace exported: {dest}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", f"Failed to export:\n{e}")
+
+    def _import_workspace_dialog(self):
+        """Import a workspace from a file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Import Workspace", "",
+            "Workspace Files (*.workspace.json *.json);;All Files (*)",
+        )
+        if file_path:
+            imported_name = self.workspace_manager.import_workspace(file_path)
+            if imported_name:
+                self.status_label.setText(f"Workspace imported: {imported_name}")
+            else:
+                QMessageBox.warning(self, "Import Failed", "Could not import workspace.")
+
+    def _open_workspace_manager(self):
+        """Open the Workspace Manager dialog."""
+        names = self.workspace_manager.list_workspaces()
+        dlg = WorkspaceManagerDialog(self, names, startup_name=self.settings.startup_workspace)
+        dlg.workspace_selected.connect(self._load_workspace)
+        dlg.workspace_deleted.connect(self._on_workspace_deleted)
+        dlg.workspace_renamed.connect(self._on_workspace_renamed)
+        dlg.workspace_duplicated.connect(self._on_workspace_duplicated)
+        dlg.workspace_imported.connect(self._on_workspace_imported)
+        dlg.workspace_exported.connect(self._on_workspace_exported)
+        dlg.set_startup_requested.connect(self._on_set_startup_workspace)
+        dlg.restore_default_requested.connect(self._on_restore_default_workspace)
+        dlg.exec_()
+
+    def _on_workspace_deleted(self, name: str):
+        self.workspace_manager.delete(name)
+        if self.current_workspace_name == name:
+            self.current_workspace_name = ""
+            self.setWindowTitle("🧊 Booru Tag Editor++")
+
+    def _on_workspace_renamed(self, old_name: str, new_name: str):
+        if self.workspace_manager.rename(old_name, new_name):
+            if self.current_workspace_name == old_name:
+                self.current_workspace_name = new_name
+                self.setWindowTitle(f"🧊 Booru Tag Editor++ — {new_name}")
+
+    def _on_workspace_duplicated(self, source: str, dest: str):
+        self.workspace_manager.duplicate(source, dest)
+
+    def _on_workspace_imported(self, file_path: str):
+        self.workspace_manager.import_workspace(file_path)
+
+    def _on_workspace_exported(self, name: str):
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Export Workspace", f"{name}.workspace.json",
+            "Workspace Files (*.workspace.json);;All Files (*)",
+        )
+        if dest:
+            try:
+                self.workspace_manager.export_workspace(name, dest)
+                self.status_label.setText(f"Workspace exported: {dest}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", f"Failed to export:\n{e}")
+
+    def _on_set_startup_workspace(self, name: str):
+        self.settings.startup_workspace = name
+        self.status_label.setText(f"Startup workspace set to: {name}")
+
+    def _on_restore_default_workspace(self):
+        self.settings.startup_workspace = "Default"
+        self.status_label.setText("Startup workspace reset to: Default")
 
     def closeEvent(self, event):
         if self.tag_manager.dirty:

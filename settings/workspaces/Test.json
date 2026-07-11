@@ -1,0 +1,40 @@
+{
+  "window": {
+    "width": 1920,
+    "height": 1051,
+    "x": -1,
+    "y": -9,
+    "maximized": true
+  },
+  "splitters": {
+    "main": [
+      1001,
+      914
+    ],
+    "left": [
+      836,
+      0
+    ]
+  },
+  "right_panel": {
+    "selected_tab": 0
+  },
+  "panels": {
+    "image_viewer_visible": true,
+    "folder_tree_visible": true,
+    "filmstrip_visible": true,
+    "toolbar_visible": true,
+    "status_bar_visible": true,
+    "right_panel_visible": true
+  },
+  "filmstrip": {
+    "height": 120,
+    "icon_size": 100
+  },
+  "sort_order": "name",
+  "application_version": "1.0.0",
+  "name": "Test",
+  "modified_date": "2026-07-11T12:56:05.694659",
+  "creation_date": "2026-07-11T12:56:05.694659",
+  "version": 1
+}

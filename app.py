@@ -20,6 +20,16 @@ def main():
     window = MainWindow(settings, danbooru_client)
     settings.restore_window_geometry(window)
     window.show()
+
+    # Load startup workspace if configured
+    startup = settings.startup_workspace
+    if startup and window.workspace_manager.exists(startup):
+        data = window.workspace_manager.load(startup)
+        if data:
+            window.current_workspace_name = startup
+            window._restore_workspace_state(data)
+            window.setWindowTitle(f"🧊 Booru Tag Editor Pro++ — {startup}")
+
     return app.exec_()
 
 if __name__ == "__main__":

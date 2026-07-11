@@ -81,3 +81,11 @@ class SettingsManager:
         state = self.get("window_state")
         if state:
             window.restoreState(state)
+
+    @property
+    def startup_workspace(self):
+        return self.get("startup_workspace", "Default")
+
+    @startup_workspace.setter
+    def startup_workspace(self, value):
+        self.set("startup_workspace", value)
