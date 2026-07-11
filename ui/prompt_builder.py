@@ -4,17 +4,19 @@ Prompt Builder – build a prompt by selecting tags from categorized sections.
 """
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTextEdit, QMessageBox,
     QListWidget, QListWidgetItem, QLineEdit, QComboBox, QCheckBox,
-    QSplitter, QMenu
+    QSplitter, QMenu, QDialog, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QRect
 from PyQt5.QtGui import QClipboard, QGuiApplication
 from core.danbooru_tag_db import DanbooruTagDB
+from core.advanced_bulk import AdvancedBulkOperations
 from ui.tag_autocomplete import TagAutocompletePopup, TagEntry
 import logging
 
@@ -200,6 +202,29 @@ class PromptBuilder(QWidget):
 
         left_layout.addLayout(top_row)
 
+        fr_row = QHBoxLayout()
+        self.find_input = QLineEdit()
+        self.find_input.setPlaceholderText("Find...")
+        fr_row.addWidget(self.find_input)
+
+        self.replace_input = QLineEdit()
+        self.replace_input.setPlaceholderText("Replace with...")
+        fr_row.addWidget(self.replace_input)
+
+        self.regex_check = QCheckBox("Regex")
+        self.regex_check.setToolTip("Treat 'Find' as a regular expression instead of plain text.")
+        fr_row.addWidget(self.regex_check)
+
+        self.find_replace_btn = QPushButton("Replace All")
+        self.find_replace_btn.setToolTip(
+            "Renames the tag everywhere it appears (its category and its\n"
+            "position in the prompt are both preserved)."
+        )
+        self.find_replace_btn.clicked.connect(self._apply_find_replace)
+        fr_row.addWidget(self.find_replace_btn)
+
+        left_layout.addLayout(fr_row)
+
         self.tag_list = QListWidget()
         self.tag_list.setSelectionMode(QListWidget.ExtendedSelection)
         self.tag_list.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -263,6 +288,11 @@ class PromptBuilder(QWidget):
         self.clear_all_btn = QPushButton("🗑️ Clear All")
         self.clear_all_btn.clicked.connect(self.clear_all)
         action_row.addWidget(self.clear_all_btn)
+
+        self.reorder_btn = QPushButton("🔀 Reorder Words")
+        self.reorder_btn.setToolTip("Drag tags into a new order for the prompt, independent of category.")
+        self.reorder_btn.clicked.connect(self._open_reorder_dialog)
+        action_row.addWidget(self.reorder_btn)
 
         # “Send from Image Tags” with a mode toggle
         row = QHBoxLayout()
@@ -399,6 +429,114 @@ class PromptBuilder(QWidget):
         remove_act = menu.addAction(remove_label)
         remove_act.triggered.connect(lambda: self._remove_single_tags(tags, current_cat))
         menu.exec_(self.tag_list.mapToGlobal(pos))
+
+    def _rename_tag(self, old_tag, new_tag):
+        """Rename a tag everywhere it exists: in whichever category holds
+        it (in place, same list position) and in the global flat prompt
+        order (same position). If the new name collides with a tag that
+        already exists in the same place, the old one is dropped instead
+        of creating a duplicate."""
+        if old_tag == new_tag or not new_tag:
+            return
+        for cat, tags in self.categories.items():
+            if old_tag in tags:
+                idx = tags.index(old_tag)
+                if new_tag in tags:
+                    del tags[idx]
+                else:
+                    tags[idx] = new_tag
+        if old_tag in self.tag_order:
+            idx = self.tag_order.index(old_tag)
+            if new_tag in self.tag_order:
+                del self.tag_order[idx]
+            else:
+                self.tag_order[idx] = new_tag
+
+    def _apply_find_replace(self):
+        find_pattern = self.find_input.text()
+        replace_pattern = self.replace_input.text()
+        if not find_pattern:
+            return
+
+        pattern = find_pattern if self.regex_check.isChecked() else re.escape(find_pattern)
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            QMessageBox.warning(self, "Invalid Pattern", f"'{find_pattern}' is not a valid regular expression:\n{e}")
+            return
+
+        old_tags = list(self.tag_order)
+        new_tags = AdvancedBulkOperations.apply_regex_find_replace(old_tags, pattern, replace_pattern)
+
+        renamed = 0
+        for old_tag, new_tag in zip(old_tags, new_tags):
+            if new_tag != old_tag:
+                self._rename_tag(old_tag, new_tag)
+                renamed += 1
+
+        if renamed:
+            self._on_category_changed()
+            self.update_preview()
+            self._save_categories()
+            QMessageBox.information(self, "Find & Replace", f"Updated {renamed} tag(s).")
+        else:
+            QMessageBox.information(self, "Find & Replace", "No tags matched.")
+
+    def _open_reorder_dialog(self):
+        flat = self._get_flat_order()
+        if not flat:
+            QMessageBox.information(self, "Reorder Words", "There are no tags to reorder yet.")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Reorder Prompt Words")
+        dialog.resize(420, 500)
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel("Drag tags up/down to change their order in the prompt:"))
+
+        order_list = QListWidget()
+        order_list.setDragDropMode(QListWidget.InternalMove)
+        order_list.setDefaultDropAction(Qt.MoveAction)
+        for tag in flat:
+            order_list.addItem(QListWidgetItem(tag))
+        layout.addWidget(order_list)
+
+        def _refill(new_tags):
+            order_list.clear()
+            for t in new_tags:
+                order_list.addItem(QListWidgetItem(t))
+
+        sort_row = QHBoxLayout()
+        az_btn = QPushButton("A → Z")
+        za_btn = QPushButton("Z → A")
+        len_btn = QPushButton("By Length")
+        reset_btn = QPushButton("Reset")
+        for b in (az_btn, za_btn, len_btn, reset_btn):
+            sort_row.addWidget(b)
+        layout.addLayout(sort_row)
+
+        az_btn.clicked.connect(lambda: _refill(AdvancedBulkOperations.apply_sort_tags(
+            [order_list.item(i).text() for i in range(order_list.count())], "alphabetical")))
+        za_btn.clicked.connect(lambda: _refill(AdvancedBulkOperations.apply_sort_tags(
+            [order_list.item(i).text() for i in range(order_list.count())], "reverse")))
+        len_btn.clicked.connect(lambda: _refill(AdvancedBulkOperations.apply_sort_tags(
+            [order_list.item(i).text() for i in range(order_list.count())], "by_length")))
+        reset_btn.clicked.connect(lambda: _refill(flat))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec_() == QDialog.Accepted:
+            new_order = [order_list.item(i).text() for i in range(order_list.count())]
+            if sorted(new_order) == sorted(flat):
+                self.tag_order = new_order
+                self.update_preview()
+                self._save_categories()
+            else:
+                QMessageBox.warning(self, "Reorder Words", "Reordering was not applied due to an unexpected mismatch.")
 
     def _move_tags(self, tags, from_cat, to_cat):
         moved = 0

@@ -180,13 +180,19 @@ class MainWindow(QMainWindow):
 
         # Main splitter: left side (image viewer + folder tree) | right side (tabs)
         main_splitter = QSplitter(Qt.Horizontal)
+        # Don't let either side collapse to 0 width when dragged too far -
+        # that's what makes the handle feel like it "went off screen".
+        main_splitter.setChildrenCollapsible(False)
 
         # Left side: vertical splitter with image viewer and folder tree
         left_widget = QWidget()
+        left_widget.setMinimumWidth(250)
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
         left_splitter = QSplitter(Qt.Vertical)
+        # Left collapsible on purpose: this lets you pull the folder tree
+        # all the way down to give the image full height, same as before.
         self.image_viewer = ImageViewer()
         self.image_viewer.context_menu_requested.connect(self._show_image_context_menu)
         left_splitter.addWidget(self.image_viewer)
@@ -202,6 +208,7 @@ class MainWindow(QMainWindow):
 
         # Right side: tabs
         right_panel = QTabWidget()
+        right_panel.setMinimumWidth(300)
 
         # Tags tab
         self.tag_panel = TagPanel(self.tag_manager, self.danbooru_client, tag_db=self.tag_db)
