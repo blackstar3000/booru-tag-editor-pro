@@ -11,15 +11,45 @@ class FolderTree(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
-        self.label = QLabel("📂 Folder Browser")
+        self.label = QLabel("FOLDERS")
+        self.label.setStyleSheet(
+            "font-size: 11px; font-weight: bold; color: #666; "
+            "letter-spacing: 1px; padding: 4px 4px;"
+        )
         layout.addWidget(self.label)
 
         self.tree = QTreeView()
         self.tree.setHeaderHidden(True)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
+        self.tree.setStyleSheet("""
+            QTreeView {
+                background: transparent;
+                border: none;
+                outline: none;
+                color: #bbb;
+                font-size: 13px;
+            }
+            QTreeView::item {
+                padding: 6px 8px;
+                border-radius: 6px;
+                margin: 1px 4px;
+                min-height: 24px;
+            }
+            QTreeView::item:selected {
+                background: rgba(139, 92, 246, 0.2);
+                color: #fff;
+            }
+            QTreeView::item:hover:!selected {
+                background: rgba(255, 255, 255, 0.04);
+            }
+            QTreeView::branch {
+                background: transparent;
+            }
+        """)
 
         self.model = QFileSystemModel()
         self.model.setFilter(QDir.AllDirs | QDir.Files | QDir.NoDotAndDotDot)

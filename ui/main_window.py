@@ -93,7 +93,8 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
 
         # File menu
         menubar = self.menuBar()
@@ -117,11 +118,11 @@ class MainWindow(QMainWindow):
         self.main_toolbar.setObjectName("MainToolbar")
         toolbar = self.main_toolbar
 
-        open_action = QAction("📂 Open Folder", self)
+        open_action = QAction("Open Folder", self)
         open_action.triggered.connect(self.open_folder)
         toolbar.addAction(open_action)
 
-        up_action = QAction("⬆ Up", self)
+        up_action = QAction("Up", self)
         up_action.triggered.connect(self._go_up)
         up_action.setShortcut(QKeySequence("Ctrl+U"))
         toolbar.addAction(up_action)
@@ -129,12 +130,12 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        self.prev_action = QAction("◀ Prev", self)
+        self.prev_action = QAction("Prev", self)
         self.prev_action.triggered.connect(lambda: self.nav.navigate(-1))
         self.prev_action.setShortcut(QKeySequence(Qt.Key_Left))
         toolbar.addAction(self.prev_action)
 
-        self.next_action = QAction("Next ▶", self)
+        self.next_action = QAction("Next", self)
         self.next_action.triggered.connect(lambda: self.nav.navigate(1))
         self.next_action.setShortcut(QKeySequence(Qt.Key_Right))
         toolbar.addAction(self.next_action)
@@ -152,17 +153,17 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
 
         # Save, Undo, Redo
-        self.save_action = QAction("💾 Save", self)
+        self.save_action = QAction("Save", self)
         self.save_action.triggered.connect(self.save_current_tags)
         self.save_action.setShortcut(QKeySequence.Save)
         toolbar.addAction(self.save_action)
 
-        self.undo_action = QAction("↩ Undo", self)
+        self.undo_action = QAction("Undo", self)
         self.undo_action.triggered.connect(self.undo)
         self.undo_action.setShortcut(QKeySequence.Undo)
         toolbar.addAction(self.undo_action)
 
-        self.redo_action = QAction("↪ Redo", self)
+        self.redo_action = QAction("Redo", self)
         self.redo_action.triggered.connect(self.redo)
         self.redo_action.setShortcut(QKeySequence.Redo)
         toolbar.addAction(self.redo_action)
@@ -170,27 +171,31 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
 
         # Batch button
-        batch_action = QAction("⚡ Batch", self)
+        batch_action = QAction("Batch", self)
         batch_action.triggered.connect(self.open_batch_dialog)
         toolbar.addAction(batch_action)
 
         toolbar.addSeparator()
 
-        settings_action = QAction("⚙️ Settings", self)
+        settings_action = QAction("Settings", self)
         settings_action.triggered.connect(self.open_settings)
         toolbar.addAction(settings_action)
 
         # Add Text Editor button
-        text_editor_action = QAction("📝 Text Editor", self)
+        text_editor_action = QAction("Text Editor", self)
         text_editor_action.triggered.connect(self.open_text_editor)
         toolbar.addAction(text_editor_action)
 
         toolbar.addSeparator()
 
         # Workspaces button
-        self.workspace_menu_btn = QPushButton("🖥 Workspaces ▾")
+        self.workspace_menu_btn = QPushButton("Workspaces  ▾")
         self.workspace_menu_btn.setStyleSheet(
-            "QPushButton { padding: 4px 10px; font-size: 12px; }"
+            "QPushButton { padding: 5px 14px; font-size: 12px; "
+            "background: rgba(139, 92, 246, 0.2); "
+            "border: 1px solid rgba(139, 92, 246, 0.3); "
+            "border-radius: 8px; color: #ccc; font-weight: bold; }"
+            "QPushButton:hover { background: rgba(139, 92, 246, 0.35); color: #fff; }"
         )
         self.workspace_menu_btn.clicked.connect(self._show_workspace_menu)
         toolbar.addWidget(self.workspace_menu_btn)
@@ -200,14 +205,22 @@ class MainWindow(QMainWindow):
         # Don't let either side collapse to 0 width when dragged too far -
         # that's what makes the handle feel like it "went off screen".
         self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.setStyleSheet("QSplitter { background: transparent; }")
 
         # Left side: vertical splitter with image viewer and folder tree
-        left_widget = QWidget()
-        left_widget.setMinimumWidth(250)
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_container = QWidget()
+        left_container.setObjectName("glassPanel")
+        left_container.setStyleSheet(
+            "#glassPanel { background: rgba(16, 18, 26, 0.55); "
+            "border: 1px solid rgba(255, 255, 255, 0.05); "
+            "border-radius: 12px; }"
+        )
+        left_container.setMinimumWidth(250)
+        left_layout = QVBoxLayout(left_container)
+        left_layout.setContentsMargins(4, 4, 4, 4)
 
         self.left_splitter = QSplitter(Qt.Vertical)
+        self.left_splitter.setStyleSheet("QSplitter { background: transparent; }")
         # Left collapsible on purpose: this lets you pull the folder tree
         # all the way down to give the image full height, same as before.
         self.image_viewer = ImageViewer()
@@ -221,11 +234,21 @@ class MainWindow(QMainWindow):
         self.left_splitter.setSizes([500, 200])
 
         left_layout.addWidget(self.left_splitter)
-        self.main_splitter.addWidget(left_widget)
+        self.main_splitter.addWidget(left_container)
 
         # Right side: tabs
+        right_container = QWidget()
+        right_container.setObjectName("glassPanel")
+        right_container.setStyleSheet(
+            "#glassPanel { background: rgba(16, 18, 26, 0.55); "
+            "border: 1px solid rgba(255, 255, 255, 0.05); "
+            "border-radius: 12px; }"
+        )
+        right_container.setMinimumWidth(300)
+        right_container_layout = QVBoxLayout(right_container)
+        right_container_layout.setContentsMargins(4, 4, 4, 4)
+
         self.right_panel = QTabWidget()
-        self.right_panel.setMinimumWidth(300)
 
         # Tags tab
         self.tag_panel = TagPanel(self.tag_manager, self.danbooru_client, tag_db=self.tag_db)
@@ -290,20 +313,38 @@ class MainWindow(QMainWindow):
         self.smart_tools.filter_applied.connect(self._on_smart_collection_applied)
         self.right_panel.addTab(self.smart_tools, "🧠 Smart Tools")
 
-        self.main_splitter.addWidget(self.right_panel)
+        right_container_layout.addWidget(self.right_panel)
+        self.main_splitter.addWidget(right_container)
         self.main_splitter.setSizes([600, 400])
         layout.addWidget(self.main_splitter)
 
         # Filmstrip
+        filmstrip_container = QWidget()
+        filmstrip_container.setObjectName("glassPanel")
+        filmstrip_container.setStyleSheet(
+            "#glassPanel { background: rgba(16, 18, 26, 0.55); "
+            "border: 1px solid rgba(255, 255, 255, 0.05); "
+            "border-radius: 12px; }"
+        )
+        filmstrip_layout = QVBoxLayout(filmstrip_container)
+        filmstrip_layout.setContentsMargins(4, 4, 4, 4)
+
         self.filmstrip = Filmstrip(self.image_loader)
         self.filmstrip.image_selected.connect(self._on_filmstrip_selected)
-        self.filmstrip.setMinimumHeight(120)
-        layout.addWidget(self.filmstrip)
+        self.filmstrip.setMinimumHeight(100)
+        filmstrip_layout.addWidget(self.filmstrip)
+        layout.addWidget(filmstrip_container)
 
         # Status bar
         self.status_bar = QStatusBar()
+        self.status_bar.setStyleSheet(
+            "QStatusBar { background: rgba(13, 15, 20, 0.7); "
+            "color: #777; border-top: 1px solid rgba(255, 255, 255, 0.04); "
+            "font-size: 12px; padding: 3px 10px; }"
+        )
         self.setStatusBar(self.status_bar)
         self.status_label = QLabel()
+        self.status_label.setStyleSheet("color: #888; padding: 2px;")
         self.status_bar.addWidget(self.status_label)
 
         self.update_status()

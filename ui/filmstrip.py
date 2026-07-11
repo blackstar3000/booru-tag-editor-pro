@@ -49,29 +49,30 @@ class Filmstrip(QWidget):
         self.list_widget.setFlow(QListView.LeftToRight)
         self.list_widget.setWrapping(False)
         self.list_widget.setResizeMode(QListView.Adjust)
-        self.list_widget.setIconSize(QSize(100, 100))
-        self.list_widget.setGridSize(QSize(110, 110))
+        self.list_widget.setIconSize(QSize(90, 90))
+        self.list_widget.setGridSize(QSize(100, 100))
         self.list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.list_widget.setMinimumHeight(120)
+        self.list_widget.setMinimumHeight(100)
         self.list_widget.setStyleSheet("""
             QListWidget {
-                background: rgba(0,0,0,0.2);
+                background: transparent;
                 border: none;
                 outline: none;
             }
             QListWidget::item {
-                background: rgba(255,255,255,0.02);
-                border-radius: 4px;
-                padding: 2px;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 8px;
+                padding: 3px;
+                margin: 2px;
             }
             QListWidget::item:selected {
-                background: rgba(139,92,246,0.25);
-                border: 2px solid #8B5CF6;
-                border-radius: 4px;
+                background: rgba(139, 92, 246, 0.3);
+                border: 2px solid rgba(139, 92, 246, 0.6);
+                border-radius: 8px;
             }
-            QListWidget::item:hover {
-                background: rgba(255,255,255,0.05);
+            QListWidget::item:hover:!selected {
+                background: rgba(255, 255, 255, 0.06);
             }
         """)
 

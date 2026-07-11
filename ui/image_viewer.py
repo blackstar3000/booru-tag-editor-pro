@@ -12,10 +12,14 @@ class ImageViewer(QWidget):
         super().__init__(parent)
         self._original_pixmap = None
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setContentsMargins(4, 4, 4, 4)
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("background: rgba(0,0,0,0.3); border-radius: 10px;")
+        self.label.setStyleSheet(
+            "background: rgba(10, 12, 18, 0.6); "
+            "border-radius: 10px; "
+            "border: 1px solid rgba(255, 255, 255, 0.03);"
+        )
         self.label.setMinimumHeight(400)
         self.label.setText("No image loaded")
         self.label.setContextMenuPolicy(Qt.CustomContextMenu)
