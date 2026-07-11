@@ -14,7 +14,7 @@ class WorkspaceManagerDialog(QDialog):
     workspace_renamed = pyqtSignal(str, str)  # old, new
     workspace_duplicated = pyqtSignal(str, str)  # source, dest
     workspace_imported = pyqtSignal(str)   # imported name
-    workspace_exported = pyqtSignal(str)   # exported name
+    workspace_exported = pyqtSignal(str, str)   # name, destination path
     set_startup_requested = pyqtSignal(str)
     restore_default_requested = pyqtSignal()
 
@@ -151,7 +151,7 @@ class WorkspaceManagerDialog(QDialog):
             "Workspace Files (*.workspace.json);;All Files (*)",
         )
         if dest:
-            self.workspace_exported.emit(name)
+            self.workspace_exported.emit(name, dest)
 
     def _on_import(self):
         file_path, _ = QFileDialog.getOpenFileName(

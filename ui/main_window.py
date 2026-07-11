@@ -995,7 +995,6 @@ class MainWindow(QMainWindow):
         # Filmstrip auto-hide
         auto_hide = fs.get("auto_hide", False)
         self.filmstrip.set_auto_hide(auto_hide)
-        self._auto_hide_action.setChecked(auto_hide)
 
         # Sort order
         sort = state.get("sort_order")
@@ -1129,17 +1128,12 @@ class MainWindow(QMainWindow):
     def _on_workspace_imported(self, file_path: str):
         self.workspace_manager.import_workspace(file_path)
 
-    def _on_workspace_exported(self, name: str):
-        dest, _ = QFileDialog.getSaveFileName(
-            self, "Export Workspace", f"{name}.workspace.json",
-            "Workspace Files (*.workspace.json);;All Files (*)",
-        )
-        if dest:
-            try:
-                self.workspace_manager.export_workspace(name, dest)
-                self.status_label.setText(f"Workspace exported: {dest}")
-            except Exception as e:
-                QMessageBox.critical(self, "Export Error", f"Failed to export:\n{e}")
+    def _on_workspace_exported(self, name: str, dest: str):
+        try:
+            self.workspace_manager.export_workspace(name, dest)
+            self.status_label.setText(f"Workspace exported: {dest}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Failed to export:\n{e}")
 
     def _on_set_startup_workspace(self, name: str):
         self.settings.startup_workspace = name

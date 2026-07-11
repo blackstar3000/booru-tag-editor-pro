@@ -138,27 +138,6 @@ class Filmstrip(QWidget):
         if self.list_widget.count() > 0:
             self.set_current_index(0)
 
-    def set_images(self, paths: list):
-        """Populate the filmstrip with thumbnails."""
-        self.list_widget.clear()
-        self.current_index = -1
-        if not paths:
-            return
-        for path in paths:
-            pixmap = self.image_loader.get_pixmap(path)
-            if pixmap is None:
-                pixmap = QPixmap(100, 100)
-                pixmap.fill(Qt.darkGray)
-            scaled = pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            icon = QIcon(scaled)
-            item = QListWidgetItem(icon, "")
-            item.setToolTip(path.name)
-            item.setData(Qt.UserRole, str(path))
-            self.list_widget.addItem(item)
-        # Select the first item if available
-        if self.list_widget.count() > 0:
-            self.set_current_index(0)
-
     def set_current_index(self, index: int):
         """Highlight the thumbnail at the given index (programmatic)."""
         if index < 0 or index >= self.list_widget.count():
