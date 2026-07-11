@@ -8,34 +8,33 @@
   },
   "splitters": {
     "main": [
-      1000,
-      915
+      838,
+      1077
     ],
     "left": [
-      963,
+      836,
       0
     ]
   },
   "right_panel": {
-    "selected_tab": 2
+    "selected_tab": 3
   },
   "panels": {
     "image_viewer_visible": true,
     "folder_tree_visible": true,
-    "filmstrip_visible": false,
+    "filmstrip_visible": true,
     "toolbar_visible": true,
     "status_bar_visible": true,
     "right_panel_visible": true
   },
   "filmstrip": {
     "height": 120,
-    "icon_size": 100,
-    "auto_hide": true
+    "icon_size": 100
   },
   "sort_order": "name",
   "application_version": "1.0.0",
-  "name": "Test",
-  "modified_date": "2026-07-11T14:48:42.330407",
-  "creation_date": "2026-07-11T14:48:42.330407",
+  "name": "Prompt Builder",
+  "modified_date": "2026-07-11T13:53:42.078629",
+  "creation_date": "2026-07-11T13:53:42.078629",
   "version": 1
 }

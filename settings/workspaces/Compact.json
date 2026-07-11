@@ -1,18 +1,18 @@
 {
   "window": {
-    "width": 1920,
-    "height": 1051,
-    "x": -1,
-    "y": -9,
-    "maximized": true
+    "width": 1445,
+    "height": 872,
+    "x": 223,
+    "y": 59,
+    "maximized": false
   },
   "splitters": {
     "main": [
-      1000,
-      915
+      773,
+      667
     ],
     "left": [
-      963,
+      784,
       0
     ]
   },
@@ -34,8 +34,8 @@
   },
   "sort_order": "name",
   "application_version": "1.0.0",
-  "name": "Test",
-  "modified_date": "2026-07-11T14:48:42.330407",
-  "creation_date": "2026-07-11T14:48:42.330407",
+  "name": "Compact",
+  "modified_date": "2026-07-11T14:55:33.901525",
+  "creation_date": "2026-07-11T14:55:33.901525",
   "version": 1
 }

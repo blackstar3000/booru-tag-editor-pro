@@ -355,6 +355,8 @@ class MainWindow(QMainWindow):
 
     def _on_image_list_changed(self, paths):
         self.filmstrip.set_images(paths)
+        if self.filmstrip.auto_hide_enabled():
+            self.filmstrip.show_and_reset_timer()
         self.stats_dashboard.set_image_paths(paths, self.threadpool)
         self.duplicate_finder.set_image_paths(paths)
         self.dataset_audit.set_image_paths(paths)
@@ -373,6 +375,8 @@ class MainWindow(QMainWindow):
             self.prompt_builder.set_current_image(None)
         # Update filmstrip highlight
         self.filmstrip.set_current_index(index)
+        if self.filmstrip.auto_hide_enabled():
+            self.filmstrip.show_and_reset_timer()
         # Update folder tree highlight
         if path:
             self.folder_tree.select_path(str(path))
@@ -841,11 +845,26 @@ class MainWindow(QMainWindow):
         menu.addAction("Export View").triggered.connect(self._export_workspace_dialog)
         menu.addAction("Import View").triggered.connect(self._import_workspace_dialog)
         menu.addSeparator()
+
+        # Auto-hide filmstrip toggle
+        self._auto_hide_action = menu.addAction("Auto-hide Filmstrip")
+        self._auto_hide_action.setCheckable(True)
+        self._auto_hide_action.setChecked(self.filmstrip.auto_hide_enabled())
+        self._auto_hide_action.triggered.connect(self._toggle_filmstrip_auto_hide)
+
+        menu.addSeparator()
         menu.addAction("Manage Workspaces…").triggered.connect(self._open_workspace_manager)
 
         menu.exec_(self.workspace_menu_btn.mapToGlobal(
             self.workspace_menu_btn.rect().bottomLeft()
         ))
+
+    def _toggle_filmstrip_auto_hide(self, checked: bool):
+        """Toggle the filmstrip auto-hide feature."""
+        self.filmstrip.set_auto_hide(checked)
+        self.status_label.setText(
+            f"Filmstrip auto-hide: {'ON' if checked else 'OFF'}"
+        )
 
     def _capture_workspace_state(self) -> dict:
         """Capture the complete UI state into a serialisable dict."""
@@ -875,6 +894,7 @@ class MainWindow(QMainWindow):
             "filmstrip": {
                 "height": self.filmstrip.height(),
                 "icon_size": 100,
+                "auto_hide": self.filmstrip.auto_hide_enabled(),
             },
             "sort_order": self.sort_combo.currentText(),
             "application_version": "1.0.0",
@@ -930,6 +950,11 @@ class MainWindow(QMainWindow):
         if fh and fh > 0:
             self.filmstrip.setMinimumHeight(min(fh, 120))
             self.filmstrip.setFixedHeight(fh) if panels.get("filmstrip_visible", True) else None
+
+        # Filmstrip auto-hide
+        auto_hide = fs.get("auto_hide", False)
+        self.filmstrip.set_auto_hide(auto_hide)
+        self._auto_hide_action.setChecked(auto_hide)
 
         # Sort order
         sort = state.get("sort_order")

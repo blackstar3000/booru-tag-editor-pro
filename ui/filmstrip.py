@@ -1,13 +1,15 @@
 # ui/filmstrip.py
 """
 Filmstrip – horizontal thumbnail strip for rapid image navigation.
+Supports optional auto-hide: hides after a timeout when the mouse
+is not hovering over it.
 """
 
 from PyQt5.QtWidgets import (
     QWidget, QHBoxLayout, QScrollArea, QListWidget, QListWidgetItem,
     QListView, QFrame
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, pyqtSignal, QSize, QTimer
 from PyQt5.QtGui import QPixmap, QIcon
 from pathlib import Path
 import logging
@@ -15,6 +17,9 @@ import logging
 from core.image_loader import ImageLoader
 
 logger = logging.getLogger(__name__)
+
+AUTO_HIDE_DELAY_MS = 5000
+
 
 class Filmstrip(QWidget):
     image_selected = pyqtSignal(str)  # emits full path to selected image
@@ -24,6 +29,12 @@ class Filmstrip(QWidget):
         self.image_loader = image_loader
         self.current_index = -1
         self._suppress_row_signal = False
+
+        # Auto-hide state
+        self._auto_hide_enabled = False
+        self._auto_hide_timer = QTimer(self)
+        self._auto_hide_timer.setSingleShot(True)
+        self._auto_hide_timer.timeout.connect(self._auto_hide_timeout)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -69,6 +80,62 @@ class Filmstrip(QWidget):
 
         self.scroll_area.setWidget(self.list_widget)
         layout.addWidget(self.scroll_area)
+
+    # ── Auto-hide ───────────────────────────────────────────────────
+
+    def set_auto_hide(self, enabled: bool):
+        """Enable or disable the auto-hide behaviour."""
+        self._auto_hide_enabled = enabled
+        if enabled:
+            self._start_auto_hide_timer()
+        else:
+            self._auto_hide_timer.stop()
+            self.show()
+
+    def auto_hide_enabled(self) -> bool:
+        return self._auto_hide_enabled
+
+    def _start_auto_hide_timer(self):
+        if self._auto_hide_enabled and self.isVisible():
+            self._auto_hide_timer.start(AUTO_HIDE_DELAY_MS)
+
+    def _auto_hide_timeout(self):
+        if self._auto_hide_enabled:
+            self.hide()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._auto_hide_enabled:
+            self._start_auto_hide_timer()
+
+    # ── Public helpers ──────────────────────────────────────────────
+
+    def show_and_reset_timer(self):
+        """Show the filmstrip and restart the hide timer (for external callers)."""
+        self.show()
+        if self._auto_hide_enabled:
+            self._auto_hide_timer.start(AUTO_HIDE_DELAY_MS)
+
+    def set_images(self, paths: list):
+        """Populate the filmstrip with thumbnails."""
+        self.list_widget.clear()
+        self.current_index = -1
+        if not paths:
+            return
+        for path in paths:
+            pixmap = self.image_loader.get_pixmap(path)
+            if pixmap is None:
+                pixmap = QPixmap(100, 100)
+                pixmap.fill(Qt.darkGray)
+            scaled = pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            icon = QIcon(scaled)
+            item = QListWidgetItem(icon, "")
+            item.setToolTip(path.name)
+            item.setData(Qt.UserRole, str(path))
+            self.list_widget.addItem(item)
+        # Select the first item if available
+        if self.list_widget.count() > 0:
+            self.set_current_index(0)
 
     def set_images(self, paths: list):
         """Populate the filmstrip with thumbnails."""
