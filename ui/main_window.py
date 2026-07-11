@@ -340,11 +340,13 @@ class MainWindow(QMainWindow):
     def _on_current_image_changed(self, path, index):
         if path and Path(path).exists():
             self.load_current_image(Path(path))
+            self.prompt_builder.set_current_image(Path(path))
         else:
             self.image_viewer.clear()
             self.tag_manager.load_tags([])
             self.metadata_panel.clear()
             self.ai_metadata_panel.clear()
+            self.prompt_builder.set_current_image(None)
         # Update filmstrip highlight
         self.filmstrip.set_current_index(index)
         # Update folder tree highlight

@@ -165,6 +165,9 @@ class PromptBuilder(QWidget):
         self.tag_db = tag_db
         self.categories = {}
         self.category_order = DEFAULT_ORDER.copy()
+        self.tag_order = []
+        self._all_data = {'images': {}, 'order': DEFAULT_ORDER.copy()}
+        self.current_image_key = None
         self._autocomplete_connected = False
         self.setup_ui()
         self.load_categories()
@@ -261,9 +264,21 @@ class PromptBuilder(QWidget):
         self.clear_all_btn.clicked.connect(self.clear_all)
         action_row.addWidget(self.clear_all_btn)
 
+        # “Send from Image Tags” with a mode toggle
+        row = QHBoxLayout()
         self.seed_btn = QPushButton("🌱 Send from Image Tags")
-        self.seed_btn.clicked.connect(self.seed_requested.emit)
-        action_row.addWidget(self.seed_btn)
+        self.seed_btn.clicked.connect(self._on_seed_requested)
+        row.addWidget(self.seed_btn)
+
+        self.replace_check = QCheckBox("Replace (clear first)")
+        self.replace_check.setChecked(False)  # <-- now unchecked by default (merge)
+        self.replace_check.setToolTip(
+            "When checked: clears all existing tags before importing.\n"
+            "When unchecked (default): merges new tags with existing categories (preserves manual edits)."
+        )
+        row.addWidget(self.replace_check)
+        row.addStretch()
+        action_row.addLayout(row)
 
         action_row.addStretch()
         right_layout.addLayout(action_row)
@@ -274,6 +289,9 @@ class PromptBuilder(QWidget):
 
         self.category_combo.currentIndexChanged.connect(self._on_category_changed)
         self._on_category_changed()
+
+    def _on_seed_requested(self):
+        self.seed_requested.emit()
 
     def setup_autocomplete(self):
         self._autocomplete_popup = TagAutocompletePopup(self)
@@ -351,6 +369,8 @@ class PromptBuilder(QWidget):
             self.categories[current_cat] = []
         if tag not in self.categories[current_cat]:
             self.categories[current_cat].append(tag)
+            if tag not in self.tag_order:
+                self.tag_order.append(tag)
             self.add_tag_input.clear()
             self._on_category_changed()
             self.update_preview()
@@ -396,9 +416,20 @@ class PromptBuilder(QWidget):
             self.update_preview()
             self._save_categories()
 
+    def _prune_tag_order(self, removed_tags):
+        """Drop tags from the global flat order once they no longer appear
+        in any category (a tag moved between categories is never pruned,
+        since it's still present somewhere)."""
+        still_present = set()
+        for cat_tags in self.categories.values():
+            still_present.update(cat_tags)
+        removed_set = set(removed_tags)
+        self.tag_order = [t for t in self.tag_order if t in still_present or t not in removed_set]
+
     def _remove_single_tags(self, tags, from_cat):
         if from_cat in self.categories:
             self.categories[from_cat] = [t for t in self.categories[from_cat] if t not in tags]
+            self._prune_tag_order(tags)
             self._on_category_changed()
             self.update_preview()
             self._save_categories()
@@ -410,6 +441,7 @@ class PromptBuilder(QWidget):
             to_remove = [item.text() for item in selected]
             if current_cat in self.categories:
                 self.categories[current_cat] = [t for t in self.categories[current_cat] if t not in to_remove]
+                self._prune_tag_order(to_remove)
                 self._on_category_changed()
                 self.update_preview()
                 self._save_categories()
@@ -418,7 +450,9 @@ class PromptBuilder(QWidget):
         current_cat = self.category_combo.currentText()
         if current_cat in self.categories and self.categories[current_cat]:
             if QMessageBox.question(self, "Clear Category", f"Clear all tags in '{current_cat}'?") == QMessageBox.Yes:
+                removed = self.categories[current_cat].copy()
                 self.categories[current_cat].clear()
+                self._prune_tag_order(removed)
                 self._on_category_changed()
                 self.update_preview()
                 self._save_categories()
@@ -427,46 +461,130 @@ class PromptBuilder(QWidget):
         if QMessageBox.question(self, "Clear All", "Clear all tags from all categories?") == QMessageBox.Yes:
             for cat in self.categories:
                 self.categories[cat].clear()
+            self.tag_order = []
             self._on_category_changed()
             self.update_preview()
             self._save_categories()
 
+    def _json_path(self):
+        return Path(__file__).parent.parent / "prompt_categories.json"
+
+    def _path_to_key(self, path):
+        """Normalize an image path (str or Path) into a stable dict key."""
+        if not path:
+            return None
+        return str(Path(path))
+
     def load_categories(self):
-        json_path = Path(__file__).parent.parent / "prompt_categories.json"
+        """Load the on-disk store. The store holds one categories dict per
+        image (keyed by path) plus a single shared category order."""
+        json_path = self._json_path()
+        self._all_data = {'images': {}, 'order': DEFAULT_ORDER.copy()}
+
         if json_path.exists():
             try:
                 with open(json_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                self.categories = data.get('categories', {})
-                self.category_order = data.get('order', DEFAULT_ORDER)
+                if 'images' in data:
+                    self._all_data['images'] = data.get('images', {})
+                    self._all_data['order'] = data.get('order', DEFAULT_ORDER.copy())
+                else:
+                    # Legacy single-state file from before per-image support.
+                    # Preserve the old data instead of discarding it.
+                    legacy_categories = data.get('categories', {})
+                    self._all_data['order'] = data.get('order', DEFAULT_ORDER.copy())
+                    if any(legacy_categories.get(cat) for cat in legacy_categories):
+                        self._all_data['images']['__migrated_legacy_data__'] = legacy_categories
+                    logger.info(
+                        f"Migrated legacy single-state prompt_categories.json at {json_path} "
+                        f"to per-image format (old data preserved under '__migrated_legacy_data__')"
+                    )
+                    self._save_all()
                 logger.info(f"Loaded prompt categories from {json_path}")
             except Exception as e:
                 logger.warning(f"Failed to load prompt categories: {e}")
-                self._create_defaults()
         else:
-            self._create_defaults()
-            try:
-                with open(json_path, 'w', encoding='utf-8') as f:
-                    json.dump({'categories': self.categories, 'order': self.category_order}, f, indent=2)
-                logger.info(f"Saved default prompt categories to {json_path}")
-            except:
-                pass
+            self._save_all()
+            logger.info(f"Created new prompt categories store at {json_path}")
 
+        self.category_order = self._all_data['order']
         self.category_combo.clear()
         self.category_combo.addItems(self.category_order)
+
+        # No image selected yet; show an empty, unsaved scratch state until
+        # set_current_image() is called.
+        self.current_image_key = None
+        self.categories = {cat: [] for cat in self.category_order}
+        self.tag_order = []
         self._on_category_changed()
 
-    def _save_categories(self):
-        json_path = Path(__file__).parent.parent / "prompt_categories.json"
+    def _derive_tag_order(self, categories):
+        """Fallback for images saved before tag_order existed: reconstruct
+        a starting order from current category order/list order."""
+        order = []
+        for cat in self.category_order:
+            for tag in categories.get(cat, []):
+                if tag not in order:
+                    order.append(tag)
+        # catch any tags in categories not covered by category_order
+        for cat, tags in categories.items():
+            for tag in tags:
+                if tag not in order:
+                    order.append(tag)
+        return order
+
+    def set_current_image(self, path):
+        """Switch the Prompt Builder to show/edit the state for a specific
+        image. Pass None/falsy to clear to an unsaved scratch state (e.g.
+        when no image is loaded)."""
+        key = self._path_to_key(path)
+        self.current_image_key = key
+
+        if key is None:
+            self.categories = {cat: [] for cat in self.category_order}
+            self.tag_order = []
+        else:
+            stored = self._all_data['images'].get(key)
+            if stored is None:
+                stored = {'categories': {cat: [] for cat in self.category_order}, 'tag_order': []}
+                self._all_data['images'][key] = stored
+            elif 'categories' not in stored:
+                # Backward compat: earlier per-image format was just a flat
+                # {category: [tags]} dict with no separate tag_order.
+                old_categories = stored
+                stored = {
+                    'categories': old_categories,
+                    'tag_order': self._derive_tag_order(old_categories),
+                }
+                self._all_data['images'][key] = stored
+
+            for cat in self.category_order:
+                stored['categories'].setdefault(cat, [])
+            stored.setdefault('tag_order', self._derive_tag_order(stored['categories']))
+
+            self.categories = stored['categories']
+            self.tag_order = stored['tag_order']
+
+        self.add_tag_input.clear()
+        self._on_category_changed()
+        self.update_preview()
+
+    def _save_all(self):
+        json_path = self._json_path()
         try:
             with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump({'categories': self.categories, 'order': self.category_order}, f, indent=2, ensure_ascii=False)
+                json.dump(self._all_data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.warning(f"Failed to save prompt categories: {e}")
 
-    def _create_defaults(self):
-        self.categories = {cat: [] for cat in DEFAULT_CATEGORIES}
-        self.category_order = DEFAULT_ORDER.copy()
+    def _save_categories(self):
+        if self.current_image_key is not None:
+            self._all_data['images'][self.current_image_key] = {
+                'categories': self.categories,
+                'tag_order': self.tag_order,
+            }
+        self._all_data['order'] = self.category_order
+        self._save_all()
 
     def _get_tag_category(self, tag: str):
         """Look up a tag's Danbooru category from the tag DB."""
@@ -496,85 +614,160 @@ class PromptBuilder(QWidget):
         return best_cat if best_score > 0 else None
 
     def seed_from_tags(self, tags):
-        for cat in self.categories:
-            self.categories[cat].clear()
-        for cat in self.category_order:
-            if cat not in self.categories:
-                self.categories[cat] = []
-
-        stats = defaultdict(int)
-
-        for tag in tags:
-            db_cat = self._get_tag_category(tag)
-            target = None
-
-            if db_cat == 1:
-                target = "Artist"
-            elif db_cat == 3:
-                target = "Copyright"
-            elif db_cat == 4:
-                target = "Character"
-            elif db_cat == 5:
-                target = "Meta"
-            else:
-                target = self._classify_general(tag)
-                if target is None:
+        """
+        Import tags from the image. Behavior depends on self.replace_check.
+        - If checked: clear all categories, then add the image's tags.
+        - If unchecked: merge the image's tags with existing categories (no duplicates).
+        """
+        if self.replace_check.isChecked():
+            # Replace mode: clear everything first
+            for cat in self.categories:
+                self.categories[cat].clear()
+            # Ensure all categories exist
+            for cat in self.category_order:
+                if cat not in self.categories:
+                    self.categories[cat] = []
+            self.tag_order = []
+            stats = defaultdict(int)
+            added_count = 0
+            for tag in tags:
+                db_cat = self._get_tag_category(tag)
+                target = None
+                if db_cat == 1:
+                    target = "Artist"
+                elif db_cat == 3:
+                    target = "Copyright"
+                elif db_cat == 4:
+                    target = "Character"
+                elif db_cat == 5:
+                    target = "Meta"
+                else:
+                    target = self._classify_general(tag)
+                    if target is None:
+                        target = "Uncategorized"
+                if target in self.categories:
+                    self.categories[target].append(tag)
+                else:
+                    self.categories.setdefault("Uncategorized", []).append(tag)
                     target = "Uncategorized"
+                if tag not in self.tag_order:
+                    self.tag_order.append(tag)
+                stats[target] += 1
+                added_count += 1
+            if added_count:
+                self._on_category_changed()
+                self.update_preview()
+                self._save_categories()
+            total = len(tags)
+            parts = [f"Replaced with {added_count} tags from {total}"]
+            classified = sum(v for k, v in stats.items() if k != "Uncategorized")
+            if classified:
+                parts.append(f"{classified} classified")
+            if stats.get("Uncategorized", 0):
+                parts.append(f"{stats['Uncategorized']} unclassified")
+            self.grouping_completed.emit(" \u00b7 ".join(parts))
+            return added_count
 
-            if target in self.categories:
-                self.categories[target].append(tag)
-            else:
-                self.categories.setdefault("Uncategorized", []).append(tag)
-                target = "Uncategorized"
-            stats[target] += 1
+        else:
+            # Merge mode: only add tags that don't already exist anywhere
+            # Ensure all categories exist
+            for cat in self.category_order:
+                if cat not in self.categories:
+                    self.categories[cat] = []
+            stats = defaultdict(int)
+            added_count = 0
+            # Build a set of all existing tags for quick lookup
+            existing_tags = set()
+            for cat in self.categories:
+                existing_tags.update(self.categories[cat])
 
-        imported = len(tags)
-        grouped = sum(v for k, v in stats.items() if k != "Uncategorized")
-        cat_count = sum(1 for v in stats.values() if v > 0)
+            for tag in tags:
+                if tag in existing_tags:
+                    stats["already_present"] += 1
+                    continue
+                db_cat = self._get_tag_category(tag)
+                target = None
+                if db_cat == 1:
+                    target = "Artist"
+                elif db_cat == 3:
+                    target = "Copyright"
+                elif db_cat == 4:
+                    target = "Character"
+                elif db_cat == 5:
+                    target = "Meta"
+                else:
+                    target = self._classify_general(tag)
+                    if target is None:
+                        target = "Uncategorized"
+                if target in self.categories:
+                    self.categories[target].append(tag)
+                else:
+                    self.categories.setdefault("Uncategorized", []).append(tag)
+                    target = "Uncategorized"
+                if tag not in self.tag_order:
+                    self.tag_order.append(tag)
+                stats[target] += 1
+                added_count += 1
+                existing_tags.add(tag)  # avoid duplicate within the same batch
 
-        parts = [f"Imported {imported} tags into {cat_count} sections"]
-        if grouped:
-            parts.append(f"{grouped} classified")
-        if stats.get("Uncategorized", 0):
-            parts.append(f"{stats['Uncategorized']} unclassified")
-        self.grouping_completed.emit(" \u00b7 ".join(parts))
+            if added_count:
+                self._on_category_changed()
+                self.update_preview()
+                self._save_categories()
 
-        self._on_category_changed()
-        self.update_preview()
-        self._save_categories()
-        return imported
+            total = len(tags)
+            parts = [f"Merged {added_count} new tags from {total}"]
+            if stats.get("already_present", 0):
+                parts.append(f"{stats['already_present']} already present")
+            classified = sum(v for k, v in stats.items() if k not in ("Uncategorized", "already_present"))
+            if classified:
+                parts.append(f"{classified} classified")
+            if stats.get("Uncategorized", 0):
+                parts.append(f"{stats['Uncategorized']} unclassified")
+            self.grouping_completed.emit(" \u00b7 ".join(parts))
+            return added_count
+
+    def _get_flat_order(self):
+        """Tags in their original/global order, independent of which
+        category they currently belong to. This is what moving a tag
+        between categories should NOT change."""
+        all_tags = set()
+        for cat_tags in self.categories.values():
+            all_tags.update(cat_tags)
+
+        flat = [t for t in self.tag_order if t in all_tags]
+
+        # Safety net: include any tag present in a category but missing
+        # from tag_order (shouldn't normally happen, but keeps nothing lost)
+        seen = set(flat)
+        for cat in self.category_order:
+            for t in self.categories.get(cat, []):
+                if t not in seen:
+                    flat.append(t)
+                    seen.add(t)
+        return flat
 
     def update_preview(self):
         format_mode = self.format_combo.currentText()
         include_negative = self.include_negative.isChecked()
 
-        ordered = []
-        for cat in self.category_order:
-            if cat in self.categories and self.categories[cat]:
-                ordered.append((cat, self.categories[cat]))
-
-        if format_mode == "Comma Separated":
-            all_tags = []
-            for cat, tags in ordered:
-                all_tags.extend(tags)
-            prompt = ", ".join(all_tags)
-        elif format_mode == "Multi-Line":
-            lines = []
-            for cat, tags in ordered:
-                lines.extend(tags)
-            prompt = "\n".join(lines)
-        elif format_mode == "Grouped by Category":
+        if format_mode == "Grouped by Category":
+            ordered = []
+            for cat in self.category_order:
+                if cat in self.categories and self.categories[cat]:
+                    ordered.append((cat, self.categories[cat]))
             sections = []
             for cat, tags in ordered:
                 sections.append(f"### {cat}")
                 sections.extend(tags)
                 sections.append("")
             prompt = "\n".join(sections)
-        else:  # Compact
-            all_tags = []
-            for cat, tags in ordered:
-                all_tags.extend(tags)
-            prompt = ", ".join(all_tags)
+        else:
+            flat = self._get_flat_order()
+            if format_mode == "Multi-Line":
+                prompt = "\n".join(flat)
+            else:  # Comma Separated or Compact
+                prompt = ", ".join(flat)
 
         self.preview_text.setText(prompt)
         self.prompt_changed.emit(prompt)

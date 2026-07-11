@@ -1,6 +1,17 @@
 [
   {
-    "name": "test",
+    "name": "1girl",
+    "conditions": [
+      {
+        "type": "tag_contains",
+        "value": "1girl",
+        "operator": "=="
+      }
+    ],
+    "logic": "AND"
+  },
+  {
+    "name": "1024 size",
     "conditions": [
       {
         "type": "height",
@@ -10,17 +21,6 @@
       {
         "type": "width",
         "value": 1024,
-        "operator": "=="
-      }
-    ],
-    "logic": "AND"
-  },
-  {
-    "name": "1girl",
-    "conditions": [
-      {
-        "type": "tag_contains",
-        "value": "1girl",
         "operator": "=="
       }
     ],
