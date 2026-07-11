@@ -6,11 +6,11 @@ is not hovering over it.
 """
 
 from PyQt5.QtWidgets import (
-    QWidget, QHBoxLayout, QScrollArea, QListWidget, QListWidgetItem,
-    QListView, QFrame
+    QWidget, QHBoxLayout, QVBoxLayout, QScrollArea, QListWidget, QListWidgetItem,
+    QListView, QFrame, QLabel, QApplication
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QSize, QTimer
-from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtCore import Qt, pyqtSignal, QSize, QTimer, QEvent
+from PyQt5.QtGui import QPixmap, QIcon, QCursor
 from pathlib import Path
 import logging
 
@@ -19,6 +19,8 @@ from core.image_loader import ImageLoader
 logger = logging.getLogger(__name__)
 
 AUTO_HIDE_DELAY_MS = 5000
+PREVIEW_MAX_SIZE = 320
+PREVIEW_GAP_PX = 10
 
 
 class Filmstrip(QWidget):
@@ -79,8 +81,33 @@ class Filmstrip(QWidget):
         self.list_widget.setFocusPolicy(Qt.StrongFocus)
         self.list_widget.currentRowChanged.connect(self._on_current_row_changed)
 
+        # Hover preview: mouse tracking + itemEntered fires without needing
+        # a button held down, and a viewport-level Leave event tells us
+        # when to hide the popup again.
+        self.list_widget.setMouseTracking(True)
+        self.list_widget.itemEntered.connect(self._on_item_entered)
+        self.list_widget.viewport().installEventFilter(self)
+
         self.scroll_area.setWidget(self.list_widget)
         layout.addWidget(self.scroll_area)
+
+        self._preview_popup = QWidget(None, Qt.ToolTip | Qt.FramelessWindowHint)
+        self._preview_popup.setStyleSheet(
+            "background: rgba(20, 20, 26, 235); "
+            "border: 1px solid rgba(255, 255, 255, 50); "
+            "border-radius: 10px;"
+        )
+        popup_layout = QVBoxLayout(self._preview_popup)
+        popup_layout.setContentsMargins(6, 6, 6, 6)
+        popup_layout.setSpacing(4)
+        self._preview_image_label = QLabel()
+        self._preview_image_label.setAlignment(Qt.AlignCenter)
+        popup_layout.addWidget(self._preview_image_label)
+        self._preview_caption_label = QLabel()
+        self._preview_caption_label.setAlignment(Qt.AlignCenter)
+        self._preview_caption_label.setStyleSheet("color: #ccc; font-size: 11px;")
+        popup_layout.addWidget(self._preview_caption_label)
+        self._preview_popup.hide()
 
     # ── Auto-hide ───────────────────────────────────────────────────
 
@@ -109,6 +136,79 @@ class Filmstrip(QWidget):
         if self._auto_hide_enabled:
             self._start_auto_hide_timer()
 
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        if self._auto_hide_enabled:
+            # Cursor is somewhere over the filmstrip - pause the countdown
+            # for as long as it stays there.
+            self._auto_hide_timer.stop()
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        if not self._auto_hide_enabled:
+            return
+        # QScrollArea/QListWidget fill this widget entirely, so Qt sends a
+        # leaveEvent here the instant the cursor moves onto one of them -
+        # even though it never actually left the filmstrip visually. Check
+        # the real cursor position against our own bounds before treating
+        # this as a genuine "moved away" and restarting the hide timer.
+        if self.rect().contains(self.mapFromGlobal(QCursor.pos())):
+            return
+        self._auto_hide_timer.start(AUTO_HIDE_DELAY_MS)
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self._preview_popup.hide()
+
+    def eventFilter(self, obj, event):
+        if obj is self.list_widget.viewport() and event.type() == QEvent.Leave:
+            self._preview_popup.hide()
+        return super().eventFilter(obj, event)
+
+    # ── Hover preview ───────────────────────────────────────────────
+
+    def _on_item_entered(self, item):
+        path_str = item.data(Qt.UserRole) if item else None
+        if not path_str:
+            self._preview_popup.hide()
+            return
+        path = Path(path_str)
+        pixmap = self.image_loader.get_pixmap(path)
+        if pixmap is None:
+            self._preview_popup.hide()
+            return
+        scaled = pixmap.scaled(
+            PREVIEW_MAX_SIZE, PREVIEW_MAX_SIZE,
+            Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+        self._preview_image_label.setPixmap(scaled)
+        self._preview_caption_label.setText(path.name)
+        self._preview_popup.adjustSize()
+        self._position_preview_popup(item)
+        self._preview_popup.show()
+
+    def _position_preview_popup(self, item):
+        item_rect = self.list_widget.visualItemRect(item)
+        viewport = self.list_widget.viewport()
+        item_top_left = viewport.mapToGlobal(item_rect.topLeft())
+
+        popup_w = self._preview_popup.width()
+        popup_h = self._preview_popup.height()
+
+        x = item_top_left.x() + (item_rect.width() - popup_w) // 2
+        y = item_top_left.y() - popup_h - PREVIEW_GAP_PX
+
+        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        if screen is not None:
+            avail = screen.availableGeometry()
+            x = max(avail.left(), min(x, avail.right() - popup_w))
+            if y < avail.top():
+                # Not enough room above (e.g. filmstrip near top of screen) -
+                # show it below the item instead.
+                y = item_top_left.y() + item_rect.height() + PREVIEW_GAP_PX
+
+        self._preview_popup.move(x, y)
+
     # ── Public helpers ──────────────────────────────────────────────
 
     def show_and_reset_timer(self):
@@ -131,7 +231,6 @@ class Filmstrip(QWidget):
             scaled = pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             icon = QIcon(scaled)
             item = QListWidgetItem(icon, "")
-            item.setToolTip(path.name)
             item.setData(Qt.UserRole, str(path))
             self.list_widget.addItem(item)
         # Select the first item if available
