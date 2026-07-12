@@ -5,7 +5,6 @@ Smart Tools – Smart Collections & Advanced Bulk Operations.
 
 import json
 import logging
-import re
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QSplitter,
     QListWidget, QListWidgetItem, QPushButton, QLabel, QLineEdit,
@@ -19,6 +18,7 @@ from core.smart_collection import SmartCollection, CollectionManager, Condition
 from core.advanced_bulk import AdvancedBulkOperations
 
 logger = logging.getLogger(__name__)
+
 
 # --- Smart Collections Worker ---
 class CollectionApplyWorkerSignals(QObject):
