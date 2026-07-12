@@ -89,3 +89,62 @@ class SettingsManager:
     @startup_workspace.setter
     def startup_workspace(self, value):
         self.set("startup_workspace", value)
+
+    # --- Gelbooru ---
+    @property
+    def gelbooru_user_id(self):
+        return self.get("gelbooru_user_id", "")
+
+    @gelbooru_user_id.setter
+    def gelbooru_user_id(self, value):
+        self.set("gelbooru_user_id", value)
+
+    @property
+    def gelbooru_api_key(self):
+        return self.get("gelbooru_api_key", "")
+
+    @gelbooru_api_key.setter
+    def gelbooru_api_key(self, value):
+        self.set("gelbooru_api_key", value)
+
+    @property
+    def gelbooru_cookies(self):
+        return self.get("gelbooru_cookies", "")
+
+    @gelbooru_cookies.setter
+    def gelbooru_cookies(self, value):
+        self.set("gelbooru_cookies", value)
+
+    # --- Rule34 ---
+    @property
+    def rule34_user_id(self):
+        return self.get("rule34_user_id", "")
+
+    @rule34_user_id.setter
+    def rule34_user_id(self, value):
+        self.set("rule34_user_id", value)
+
+    @property
+    def rule34_api_key(self):
+        return self.get("rule34_api_key", "")
+
+    @rule34_api_key.setter
+    def rule34_api_key(self, value):
+        self.set("rule34_api_key", value)
+
+    # --- yande.re ---
+    @property
+    def yandere_api_key(self):
+        return self.get("yandere_api_key", "")
+
+    @yandere_api_key.setter
+    def yandere_api_key(self, value):
+        self.set("yandere_api_key", value)
+
+    @property
+    def yandere_cookies(self):
+        return self.get("yandere_cookies", "")
+
+    @yandere_cookies.setter
+    def yandere_cookies(self, value):
+        self.set("yandere_cookies", value)
