@@ -8,16 +8,16 @@
   },
   "splitters": {
     "main": [
-      1000,
-      915
+      929,
+      972
     ],
     "left": [
-      963,
+      899,
       0
     ]
   },
   "right_panel": {
-    "selected_tab": 2
+    "selected_tab": 7
   },
   "panels": {
     "image_viewer_visible": true,
@@ -28,14 +28,14 @@
     "right_panel_visible": true
   },
   "filmstrip": {
-    "height": 120,
+    "height": 125,
     "icon_size": 100,
     "auto_hide": true
   },
   "sort_order": "name",
   "application_version": "1.0.0",
-  "name": "Test",
-  "modified_date": "2026-07-11T14:48:42.330407",
-  "creation_date": "2026-07-11T14:48:42.330407",
+  "name": "Smart Tools",
+  "modified_date": "2026-07-12T03:11:07.089922",
+  "creation_date": "2026-07-12T03:11:07.089922",
   "version": 1
 }
