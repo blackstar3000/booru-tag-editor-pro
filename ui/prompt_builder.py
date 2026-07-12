@@ -212,14 +212,9 @@ class PromptBuilder(QWidget):
         fr_row.addWidget(self.replace_input)
 
         self.regex_check = QCheckBox("Regex")
-        self.regex_check.setToolTip("Treat 'Find' as a regular expression instead of plain text.")
         fr_row.addWidget(self.regex_check)
 
         self.find_replace_btn = QPushButton("Replace All")
-        self.find_replace_btn.setToolTip(
-            "Renames the tag everywhere it appears (its category and its\n"
-            "position in the prompt are both preserved)."
-        )
         self.find_replace_btn.clicked.connect(self._apply_find_replace)
         fr_row.addWidget(self.find_replace_btn)
 
@@ -290,7 +285,6 @@ class PromptBuilder(QWidget):
         action_row.addWidget(self.clear_all_btn)
 
         self.reorder_btn = QPushButton("🔀 Reorder Words")
-        self.reorder_btn.setToolTip("Drag tags into a new order for the prompt, independent of category.")
         self.reorder_btn.clicked.connect(self._open_reorder_dialog)
         action_row.addWidget(self.reorder_btn)
 
@@ -301,11 +295,7 @@ class PromptBuilder(QWidget):
         row.addWidget(self.seed_btn)
 
         self.replace_check = QCheckBox("Replace (clear first)")
-        self.replace_check.setChecked(False)  # <-- now unchecked by default (merge)
-        self.replace_check.setToolTip(
-            "When checked: clears all existing tags before importing.\n"
-            "When unchecked (default): merges new tags with existing categories (preserves manual edits)."
-        )
+        self.replace_check.setChecked(False)
         row.addWidget(self.replace_check)
         row.addStretch()
         action_row.addLayout(row)
