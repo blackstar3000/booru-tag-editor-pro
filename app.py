@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
+import ctypes
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from logging_config import setup_logging
@@ -8,6 +9,19 @@ from ui.main_window import MainWindow
 from core.settings_manager import SettingsManager
 from core.danbooru_client import DanbooruClient
 from ui.glassmorphism_style import GLASS_STYLE
+
+
+def _set_dark_titlebar(hwnd):
+    """Force Windows 10/11 dark title bar via DWM API."""
+    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+    try:
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+            ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
+        )
+    except Exception:
+        pass
+
 
 def main():
     setup_logging()
@@ -20,6 +34,9 @@ def main():
     window = MainWindow(settings, danbooru_client)
     settings.restore_window_geometry(window)
     window.show()
+
+    # Dark title bar
+    _set_dark_titlebar(int(window.winId()))
 
     # Load startup workspace if configured
     startup = settings.startup_workspace
