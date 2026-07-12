@@ -13,9 +13,9 @@ from core.image_loader import ImageLoader
 from core.metadata_reader import MetadataReader
 from core.settings_manager import SettingsManager
 from core.tag_manager import TagManager
-from core.danbooru_client import DanbooruClient
 from core.danbooru_tag_db import DanbooruTagDB
 from core.navigation_controller import NavigationController
+from core.booru_source_manager import BooruSourceManager
 from workers.folder_scan_worker import FolderScanWorker
 from workers.metadata_worker import MetadataWorker
 from ui.image_viewer import ImageViewer
@@ -32,6 +32,8 @@ from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.batch_dialog import BatchDialog
 from ui.dialogs.workspace_save_dialog import SaveWorkspaceDialog
 from ui.dialogs.workspace_manager_dialog import WorkspaceManagerDialog
+from ui.dialogs.source_manager_dialog import SourceManagerDialog
+from ui.dialogs.fetch_post_dialog import FetchPostDialog
 from core.workspace_manager import WorkspaceManager
 from ui.text_editor import TextEditor
 from ui.tooltips import attach_tooltip, register_tooltips
@@ -42,10 +44,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class MainWindow(QMainWindow):
-    def __init__(self, settings: SettingsManager, danbooru_client: DanbooruClient):
+    def __init__(self, settings: SettingsManager, source_manager: BooruSourceManager):
         super().__init__()
         self.settings = settings
-        self.danbooru_client = danbooru_client
+        self.source_manager = source_manager
         self.setWindowTitle("🧊 Booru Tag Editor Pro++")
         self.text_editor = None  # keep reference
 
@@ -190,6 +192,30 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
+        # Sources button
+        self.sources_btn = QPushButton("Sources  ▾")
+        self.sources_btn.setStyleSheet(
+            "QPushButton { padding: 5px 14px; font-size: 12px; "
+            "background: rgba(59, 130, 246, 0.2); "
+            "border: 1px solid rgba(59, 130, 246, 0.3); "
+            "border-radius: 8px; color: #ccc; font-weight: bold; }"
+            "QPushButton:hover { background: rgba(59, 130, 246, 0.35); color: #fff; }"
+        )
+        self.sources_btn.clicked.connect(self._open_source_manager)
+        toolbar.addWidget(self.sources_btn)
+
+        # Fetch Post button
+        self.fetch_post_btn = QPushButton("🔗 Fetch Tags")
+        self.fetch_post_btn.setStyleSheet(
+            "QPushButton { padding: 5px 14px; font-size: 12px; "
+            "background: rgba(16, 185, 129, 0.2); "
+            "border: 1px solid rgba(16, 185, 129, 0.3); "
+            "border-radius: 8px; color: #ccc; font-weight: bold; }"
+            "QPushButton:hover { background: rgba(16, 185, 129, 0.35); color: #fff; }"
+        )
+        self.fetch_post_btn.clicked.connect(self._open_fetch_post)
+        toolbar.addWidget(self.fetch_post_btn)
+
         # Workspaces button
         self.workspace_menu_btn = QPushButton("Workspaces  ▾")
         self.workspace_menu_btn.setStyleSheet(
@@ -253,7 +279,7 @@ class MainWindow(QMainWindow):
         self.right_panel = QTabWidget()
 
         # Tags tab
-        self.tag_panel = TagPanel(self.tag_manager, self.danbooru_client, tag_db=self.tag_db)
+        self.tag_panel = TagPanel(self.tag_manager, self.source_manager, tag_db=self.tag_db)
         self.right_panel.addTab(self.tag_panel, "🏷️ Tags")
 
         # EXIF Metadata tab
@@ -292,7 +318,7 @@ class MainWindow(QMainWindow):
         self.right_panel.addTab(ai_metadata_widget, "🧠 AI Metadata")
 
         # Prompt Builder tab
-        self.prompt_builder = PromptBuilder(self.danbooru_client, tag_db=self.tag_db)
+        self.prompt_builder = PromptBuilder(self.source_manager, tag_db=self.tag_db)
         self.prompt_builder.prompt_changed.connect(self._on_prompt_builder_apply)
         self.prompt_builder.seed_requested.connect(self._on_seed_requested)
         self.prompt_builder.grouping_completed.connect(self._on_grouping_completed)
@@ -886,9 +912,26 @@ class MainWindow(QMainWindow):
             self.settings.danbooru_username = username
             self.settings.danbooru_api_key = api_key
             self.settings.danbooru_cookies = cookies
-            if self.danbooru_client:
-                self.danbooru_client.reload_settings()
+            if self.source_manager:
+                self.source_manager.reload_all_settings()
             self.status_label.setText("Settings saved")
+
+    def _open_source_manager(self):
+        """Open the Booru Sources dialog."""
+        dlg = SourceManagerDialog(self.source_manager, parent=self)
+        dlg.sources_changed.connect(lambda: self.source_manager.load_source_states())
+        dlg.exec_()
+
+    def _open_fetch_post(self):
+        """Open the Fetch Post dialog."""
+        dlg = FetchPostDialog(self.source_manager, parent=self)
+        dlg.tags_fetched.connect(self._on_fetched_tags)
+        dlg.exec_()
+
+    def _on_fetched_tags(self, tags):
+        """Add fetched tags to the current image."""
+        for tag in tags:
+            self.tag_manager.add_tag(tag)
 
     def open_batch_dialog(self):
         if not self.nav.image_paths or not self.nav.current_folder:
@@ -1284,7 +1327,7 @@ class MainWindow(QMainWindow):
     def open_text_editor(self):
         """Open the text editor window (create if not exists)."""
         if self.text_editor is None:
-            self.text_editor = TextEditor(danbooru_client=self.danbooru_client, tag_db=self.tag_db, parent=self)
+            self.text_editor = TextEditor(source_manager=self.source_manager, tag_db=self.tag_db, parent=self)
         # Dark title bar (re-apply on every show in case it was reset)
         try:
             import ctypes
