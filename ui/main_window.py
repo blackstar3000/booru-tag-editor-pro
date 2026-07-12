@@ -34,6 +34,7 @@ from ui.dialogs.workspace_save_dialog import SaveWorkspaceDialog
 from ui.dialogs.workspace_manager_dialog import WorkspaceManagerDialog
 from core.workspace_manager import WorkspaceManager
 from ui.text_editor import TextEditor
+from ui.tooltips import attach_tooltip, register_tooltips
 
 import logging
 from pathlib import Path
@@ -119,9 +120,9 @@ class MainWindow(QMainWindow):
         self.main_toolbar.setObjectName("MainToolbar")
         toolbar = self.main_toolbar
 
-        open_action = QAction("Open Folder", self)
-        open_action.triggered.connect(self.open_folder)
-        toolbar.addAction(open_action)
+        self.open_action = QAction("Open Folder", self)
+        self.open_action.triggered.connect(self.open_folder)
+        toolbar.addAction(self.open_action)
 
         up_action = QAction("Up", self)
         up_action.triggered.connect(self._go_up)
@@ -172,20 +173,20 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
 
         # Batch button
-        batch_action = QAction("Batch", self)
-        batch_action.triggered.connect(self.open_batch_dialog)
-        toolbar.addAction(batch_action)
+        self.batch_action = QAction("Batch", self)
+        self.batch_action.triggered.connect(self.open_batch_dialog)
+        toolbar.addAction(self.batch_action)
 
         toolbar.addSeparator()
 
-        settings_action = QAction("Settings", self)
-        settings_action.triggered.connect(self.open_settings)
-        toolbar.addAction(settings_action)
+        self.settings_action = QAction("Settings", self)
+        self.settings_action.triggered.connect(self.open_settings)
+        toolbar.addAction(self.settings_action)
 
         # Add Text Editor button
-        text_editor_action = QAction("Text Editor", self)
-        text_editor_action.triggered.connect(self.open_text_editor)
-        toolbar.addAction(text_editor_action)
+        self.text_editor_action = QAction("Text Editor", self)
+        self.text_editor_action.triggered.connect(self.open_text_editor)
+        toolbar.addAction(self.text_editor_action)
 
         toolbar.addSeparator()
 
@@ -351,6 +352,9 @@ class MainWindow(QMainWindow):
         self.update_status()
         self._update_up_button_state()
 
+        # ── Attach glassmorphism tooltips ────────────────────────
+        self._register_tooltips()
+
     def _populate_recent_menu(self):
         self.recent_menu.clear()
         folders = self.settings.recent_folders
@@ -384,6 +388,88 @@ class MainWindow(QMainWindow):
         parent = Path(self.nav.current_folder).parent
         # If the parent is the same as the current, we're at the root (e.g., drive root on Windows)
         self.up_action.setEnabled(str(parent) != self.nav.current_folder)
+
+    def _register_tooltips(self):
+        """Register glassmorphism tooltips for all toolbar buttons."""
+        # Configs keyed by QAction (or the workspace button which is a QPushButton)
+        configs_by_action = {
+            self.open_action: {
+                "title": "Open Folder",
+                "description": "Choose a folder containing images to begin editing.",
+                "icon": "📂",
+                "shortcut": "Ctrl + O",
+            },
+            self.up_action: {
+                "title": "Up",
+                "description": "Navigate to the parent folder.",
+                "icon": "⬆️",
+                "shortcut": "Ctrl + U",
+            },
+            self.prev_action: {
+                "title": "Previous",
+                "description": "Move to the previous image.",
+                "icon": "◀️",
+                "shortcut": "Left",
+            },
+            self.next_action: {
+                "title": "Next",
+                "description": "Move to the next image.",
+                "icon": "▶️",
+                "shortcut": "Right",
+            },
+            self.save_action: {
+                "title": "Save",
+                "description": "Save all edits made to the current image.",
+                "icon": "💾",
+                "shortcut": "Ctrl + S",
+            },
+            self.undo_action: {
+                "title": "Undo",
+                "description": "Undo the last action.",
+                "icon": "↩️",
+                "shortcut": "Ctrl + Z",
+            },
+            self.redo_action: {
+                "title": "Redo",
+                "description": "Redo the previously undone action.",
+                "icon": "↪️",
+                "shortcut": "Ctrl + Y",
+            },
+            self.batch_action: {
+                "title": "Batch",
+                "description": "Perform actions on multiple images at once.",
+                "icon": "📦",
+            },
+            self.settings_action: {
+                "title": "Settings",
+                "description": "Configure application preferences and behavior.",
+                "icon": "⚙️",
+            },
+            self.text_editor_action: {
+                "title": "Text Editor",
+                "description": "Edit prompt text files with syntax highlighting and autocomplete.",
+                "icon": "📝",
+            },
+            self.workspace_menu_btn: {
+                "title": "Workspaces",
+                "description": "Save and restore complete window layouts and panel arrangements.",
+                "icon": "📐",
+                "position": "bottom",
+            },
+        }
+
+        # Build final mapping: widget -> config
+        final_mapping = {}
+
+        for key, config in configs_by_action.items():
+            if isinstance(key, QAction):
+                widget = self.main_toolbar.widgetForAction(key)
+                if widget:
+                    final_mapping[widget] = config
+            else:
+                final_mapping[key] = config
+
+        register_tooltips(final_mapping)
 
     # --- Navigation signal handlers ---
 
@@ -1199,5 +1285,14 @@ class MainWindow(QMainWindow):
         """Open the text editor window (create if not exists)."""
         if self.text_editor is None:
             self.text_editor = TextEditor(danbooru_client=self.danbooru_client, tag_db=self.tag_db, parent=self)
+            # Dark title bar for text editor
+            try:
+                import ctypes
+                hwnd = int(self.text_editor.winId())
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
+                )
+            except Exception:
+                pass
         self.text_editor.show()
         self.text_editor.raise_()
