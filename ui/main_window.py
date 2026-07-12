@@ -1285,14 +1285,14 @@ class MainWindow(QMainWindow):
         """Open the text editor window (create if not exists)."""
         if self.text_editor is None:
             self.text_editor = TextEditor(danbooru_client=self.danbooru_client, tag_db=self.tag_db, parent=self)
-            # Dark title bar for text editor
-            try:
-                import ctypes
-                hwnd = int(self.text_editor.winId())
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                    hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
-                )
-            except Exception:
-                pass
+        # Dark title bar (re-apply on every show in case it was reset)
+        try:
+            import ctypes
+            hwnd = int(self.text_editor.winId())
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception:
+            pass
         self.text_editor.show()
         self.text_editor.raise_()
