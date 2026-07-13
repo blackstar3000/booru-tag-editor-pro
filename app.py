@@ -3,6 +3,7 @@
 import sys
 import ctypes
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtCore import Qt
 from logging_config import setup_logging
 from ui.main_window import MainWindow
@@ -32,6 +33,25 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setStyleSheet(GLASS_STYLE)
+
+    # Dark palette for Fusion popups (combo dropdowns, menus) that don't use stylesheet
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(18, 20, 28))
+    palette.setColor(QPalette.WindowText, QColor(204, 204, 204))
+    palette.setColor(QPalette.Base, QColor(18, 20, 28))
+    palette.setColor(QPalette.AlternateBase, QColor(22, 24, 32))
+    palette.setColor(QPalette.ToolTipBase, QColor(18, 20, 28))
+    palette.setColor(QPalette.ToolTipText, QColor(204, 204, 204))
+    palette.setColor(QPalette.Text, QColor(204, 204, 204))
+    palette.setColor(QPalette.Button, QColor(18, 20, 28))
+    palette.setColor(QPalette.ButtonText, QColor(204, 204, 204))
+    palette.setColor(QPalette.BrightText, QColor(255, 255, 255))
+    palette.setColor(QPalette.Link, QColor(139, 92, 246))
+    palette.setColor(QPalette.Highlight, QColor(139, 92, 246, 64))
+    palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+    palette.setColor(QPalette.Disabled, QPalette.Text, QColor(100, 100, 100))
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(100, 100, 100))
+    app.setPalette(palette)
 
     settings = SettingsManager()
 
