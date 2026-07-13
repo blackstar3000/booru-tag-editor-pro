@@ -7,7 +7,7 @@ from pathlib import Path
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QToolBar, QAction,
     QTabWidget, QTextEdit, QFileDialog, QMessageBox, QSplitter,
-    QTreeView, QFileSystemModel, QMenu, QInputDialog, QPushButton,
+    QTreeView, QFileSystemModel, QMenu, QPushButton,
     QLineEdit, QLabel, QDialog, QDialogButtonBox,
     QCheckBox, QApplication
 )
@@ -19,6 +19,7 @@ from core.tag_highlighter import TagHighlighter
 from core.booru_source_manager import BooruSourceManager
 from core.danbooru_tag_db import DanbooruTagDB
 from ui.tag_autocomplete import TagAutocompletePopup, TagEntry
+from ui.windows_theme import set_dark_title_bar, dark_get_text, dark_question, dark_information, dark_warning, dark_critical
 
 import logging
 logger = logging.getLogger(__name__)
@@ -46,6 +47,10 @@ class FindDialog(QDialog):
 
     def get_search_params(self):
         return self.find_input.text(), self.case_check.isChecked()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
 
 
 class EditorTab(QTextEdit):
@@ -86,7 +91,7 @@ class EditorTab(QTextEdit):
             self.modified = False
             self._apply_highlighter()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not load file:\n{e}")
+            dark_critical(self, "Error", f"Could not load file:\n{e}")
 
     def save_file(self):
         if not self.file_path:
@@ -98,7 +103,7 @@ class EditorTab(QTextEdit):
             self.modified = False
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not save file:\n{e}")
+            dark_critical(self, "Error", f"Could not save file:\n{e}")
             return False
 
     def save_file_as(self, new_path):
@@ -245,6 +250,10 @@ class TextEditor(QMainWindow):
         self._connect_signals()
         self._load_recent_files()
         QApplication.instance().installEventFilter(self)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.ToolTip:
@@ -539,16 +548,16 @@ class TextEditor(QMainWindow):
             if not cursor.isNull():
                 tab.setTextCursor(cursor)
             else:
-                QMessageBox.information(self, "Find", "No more matches found.")
+                dark_information(self, "Find", "No more matches found.")
 
     def _replace(self):
         tab = self._current_tab()
         if not tab:
             return
-        find_text, ok = QInputDialog.getText(self, "Replace", "Find:")
+        find_text, ok = dark_get_text(self, "Replace", "Find:")
         if not ok or not find_text:
             return
-        replace_text, ok = QInputDialog.getText(self, "Replace", "Replace with:")
+        replace_text, ok = dark_get_text(self, "Replace", "Replace with:")
         if not ok:
             return
         text = tab.toPlainText()
@@ -632,7 +641,7 @@ class TextEditor(QMainWindow):
         path = Path(self.model.filePath(index))
         if path.is_file():
             path = path.parent
-        name, ok = QInputDialog.getText(self, "New File", "Enter file name:")
+        name, ok = dark_get_text(self, "New File", "Enter file name:")
         if ok and name:
             new_path = path / name
             if not new_path.exists():
@@ -647,7 +656,7 @@ class TextEditor(QMainWindow):
         path = Path(self.model.filePath(index))
         if path.is_file():
             path = path.parent
-        name, ok = QInputDialog.getText(self, "New Folder", "Enter folder name:")
+        name, ok = dark_get_text(self, "New Folder", "Enter folder name:")
         if ok and name:
             new_path = path / name
             if not new_path.exists():
@@ -658,7 +667,7 @@ class TextEditor(QMainWindow):
         if not index.isValid():
             return
         path = Path(self.model.filePath(index))
-        name, ok = QInputDialog.getText(self, "Rename", "New name:", text=path.name)
+        name, ok = dark_get_text(self, "Rename", "New name:", text=path.name)
         if ok and name:
             new_path = path.parent / name
             if not new_path.exists():
@@ -677,7 +686,7 @@ class TextEditor(QMainWindow):
         if not index.isValid():
             return
         path = Path(self.model.filePath(index))
-        if QMessageBox.question(self, "Delete", f"Delete {path.name}?") == QMessageBox.Yes:
+        if dark_question(self, "Delete", f"Delete {path.name}?") == QMessageBox.Yes:
             if path.is_file():
                 path.unlink()
             else:
@@ -687,7 +696,7 @@ class TextEditor(QMainWindow):
     def _close_tab(self, index):
         tab = self.tab_widget.widget(index)
         if tab.modified:
-            reply = QMessageBox.question(self, "Unsaved Changes", f"Save changes to {tab.file_path.name if tab.file_path else 'Untitled'}?", QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+            reply = dark_question(self, "Unsaved Changes", f"Save changes to {tab.file_path.name if tab.file_path else 'Untitled'}?", QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
             if reply == QMessageBox.Cancel:
                 return
             elif reply == QMessageBox.Save:
@@ -711,7 +720,7 @@ class TextEditor(QMainWindow):
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if tab.modified:
-                reply = QMessageBox.question(self, "Unsaved Changes", f"Save changes to {tab.file_path.name if tab.file_path else 'Untitled'}?", QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+                reply = dark_question(self, "Unsaved Changes", f"Save changes to {tab.file_path.name if tab.file_path else 'Untitled'}?", QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
                 if reply == QMessageBox.Cancel:
                     event.ignore()
                     return
