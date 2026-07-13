@@ -9,6 +9,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 import logging
 
+from ui.windows_theme import set_dark_title_bar, dark_information
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +106,7 @@ class SourceConfigWidget(QWidget):
             self.settings.set(key, field.text())
         self.client.reload_settings()
         self._update_status()
-        QMessageBox.information(self, "Settings Saved",
+        dark_information(self, "Settings Saved",
             f"{self.source_name} settings saved. Caches cleared.")
 
 
@@ -187,3 +189,7 @@ class SourceManagerDialog(QDialog):
             if hasattr(widget, 'enable_check'):
                 widget.enable_check.setChecked(False)
                 widget._update_status()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
