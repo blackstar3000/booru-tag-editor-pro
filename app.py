@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
-import ctypes
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtCore import Qt
@@ -14,18 +13,7 @@ from core.gelbooru_client import GelbooruClient
 from core.rule34_client import Rule34Client
 from core.yandere_client import YandereClient, KonachanClient
 from ui.glassmorphism_style import GLASS_STYLE
-
-
-def _set_dark_titlebar(hwnd):
-    """Force Windows 10/11 dark title bar via DWM API."""
-    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-    try:
-        ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-            ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
-        )
-    except Exception:
-        pass
+from ui.windows_theme import set_dark_title_bar
 
 
 def main():
@@ -69,7 +57,7 @@ def main():
     window.show()
 
     # Dark title bar
-    _set_dark_titlebar(int(window.winId()))
+    set_dark_title_bar(window)
 
     # Load startup workspace if configured
     startup = settings.startup_workspace
