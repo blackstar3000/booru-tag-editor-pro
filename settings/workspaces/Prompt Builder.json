@@ -12,7 +12,7 @@
       1273
     ],
     "left": [
-      854,
+      899,
       0
     ]
   },
@@ -28,14 +28,14 @@
     "right_panel_visible": true
   },
   "filmstrip": {
-    "height": 125,
+    "height": 120,
     "icon_size": 100,
     "auto_hide": true
   },
   "sort_order": "name",
   "application_version": "1.0.0",
   "name": "Prompt Builder",
-  "modified_date": "2026-07-12T03:09:59.619435",
-  "creation_date": "2026-07-12T03:09:59.619435",
+  "modified_date": "2026-07-13T19:48:40.543439",
+  "creation_date": "2026-07-13T19:48:40.543439",
   "version": 1
 }
