@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from core.booru_client_base import BooruClientBase
+from core.booru_client_base import BooruClientBase, _normalize_tag
 from core.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -118,6 +118,7 @@ class BooruSourceManager(QObject):
 
     def fetch_tag_info(self, tag: str):
         """Fetch tag info from the first enabled source."""
+        tag = _normalize_tag(tag)
         for client in self.get_enabled_clients():
             client.fetch_tag_info(tag)
             return
@@ -125,6 +126,7 @@ class BooruSourceManager(QObject):
 
     def fetch_wiki(self, tag: str):
         """Fetch wiki from all enabled sources (first to respond wins)."""
+        tag = _normalize_tag(tag)
         for client in self.get_enabled_clients():
             client.fetch_wiki(tag)
             return
@@ -132,6 +134,7 @@ class BooruSourceManager(QObject):
 
     def fetch_example_posts(self, tag: str):
         """Fetch example posts from the first enabled source."""
+        tag = _normalize_tag(tag)
         for client in self.get_enabled_clients():
             client.fetch_example_posts(tag)
             return
@@ -139,6 +142,7 @@ class BooruSourceManager(QObject):
 
     def fetch_preview_image(self, tag: str, index: int, url: str):
         """Fetch preview image using the first enabled source."""
+        tag = _normalize_tag(tag)
         for client in self.get_enabled_clients():
             client.fetch_preview_image(tag, index, url)
             return
@@ -269,6 +273,8 @@ class BooruSourceManager(QObject):
                 del self._pending_search_posts[query]
                 self.search_posts_results.emit(source_name, query, merged)
         else:
+            for post in posts:
+                post.setdefault('source', source_name)
             self.search_posts_results.emit(source_name, query, posts)
 
     def _merge_search_posts(self, query: str) -> list:
