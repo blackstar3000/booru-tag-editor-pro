@@ -3,10 +3,6 @@ Reusable autocomplete popup with Danbooru-category colors and post counts.
 ComfyUI-Autocomplete-Plus style inline popup.
 """
 
-import ctypes
-import platform
-from ctypes import wintypes
-
 from PyQt5.QtWidgets import (
     QListView, QStyledItemDelegate, QStyleOptionViewItem,
     QAbstractItemView, QApplication, QStyle, QGraphicsDropShadowEffect
@@ -17,77 +13,7 @@ from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QBrush
 import logging
 logger = logging.getLogger(__name__)
 
-
-def _enable_window_blur(hwnd):
-    """Windows 11 Mica/Acrylic backdrop with graceful fallback."""
-    if platform.system() != "Windows":
-        return False
-
-    hwnd = wintypes.HWND(hwnd)
-    dwmapi = ctypes.windll.dwmapi
-
-    DWMWA_SYSTEMBACKDROP_TYPE = 38
-    DWMSBT_AUTO = 0
-    DWMSBT_NONE = 1
-    DWMSBT_MAINWINDOW = 2
-    DWMSBT_TRANSIENTWINDOW = 3
-    DWMSBT_TABBEDWINDOW = 4
-    DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-
-    def _set_attr(attribute, value):
-        value = ctypes.c_int(value)
-        return dwmapi.DwmSetWindowAttribute(
-            hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)
-        ) == 0
-
-    try:
-        _set_attr(DWMWA_USE_IMMERSIVE_DARK_MODE, 1)
-    except Exception:
-        pass
-
-    try:
-        if _set_attr(DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW):
-            return True
-    except Exception:
-        pass
-
-    try:
-        if _set_attr(DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_TRANSIENTWINDOW):
-            return True
-    except Exception:
-        pass
-
-    try:
-        class ACCENT_POLICY(ctypes.Structure):
-            _fields_ = [
-                ("AccentState", ctypes.c_int),
-                ("AccentFlags", ctypes.c_int),
-                ("GradientColor", ctypes.c_uint),
-                ("AnimationId", ctypes.c_int),
-            ]
-
-        class WINDOWCOMPOSITIONATTRIBDATA(ctypes.Structure):
-            _fields_ = [
-                ("Attribute", ctypes.c_int),
-                ("Data", ctypes.c_void_p),
-                ("SizeOfData", ctypes.c_size_t),
-            ]
-
-        accent = ACCENT_POLICY()
-        accent.AccentState = 4
-        accent.GradientColor = 0x99202020
-        accent.AccentFlags = 2
-
-        data = WINDOWCOMPOSITIONATTRIBDATA()
-        data.Attribute = 19
-        data.Data = ctypes.cast(ctypes.pointer(accent), ctypes.c_void_p)
-        data.SizeOfData = ctypes.sizeof(accent)
-
-        ctypes.windll.user32.SetWindowCompositionAttribute(hwnd, ctypes.byref(data))
-        return True
-
-    except Exception:
-        return False
+from ui.windows_theme import set_dark_title_bar, enable_mica_backdrop
 
 CATEGORY_COLORS = {
     0: QColor("#88CCEE"),
@@ -294,8 +220,7 @@ QScrollBar::sub-page:vertical {
         super().showEvent(event)
         if not self._blur_applied:
             self._blur_applied = True
-            hwnd = int(self.winId())
-            _enable_window_blur(hwnd)
+            enable_mica_backdrop(self)
 
     def install_on(self, input_widget):
         self._input_widget = input_widget
