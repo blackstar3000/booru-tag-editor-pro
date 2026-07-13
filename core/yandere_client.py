@@ -4,7 +4,7 @@
 import logging
 from typing import Any, List, Dict
 
-from core.booru_client_base import BooruClientBase
+from core.booru_client_base import BooruClientBase, _normalize_tag
 from core.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class YandereClient(BooruClientBase):
         return "post.json"
 
     def _get_tag_search_params(self, tag: str) -> dict:
-        return {'name': tag, 'order': 'name', 'limit': 10}
+        return {'name': _normalize_tag(tag), 'order': 'name', 'limit': 10}
 
     def _get_autocomplete_params(self, query: str) -> dict:
         return {'name': f'{query}*', 'order': 'count', 'limit': 10}
@@ -134,11 +134,16 @@ class YandereClient(BooruClientBase):
             sample_urls = p.get('sample_url', '')
             preview_url = p.get('preview_url', p.get('thumb_url'))
             file_url = p.get('file_url', p.get('jpeg_url'))
+            tags_str = p.get('tags', '')
+            all_tags = tags_str.split() if tags_str else []
             posts.append({
                 'id': p.get('id'),
                 'preview_url': preview_url,
                 'file_url': file_url,
                 'large_url': sample_urls or file_url,
+                'tags': all_tags,
+                'rating': p.get('rating', ''),
+                'score': p.get('score', 0),
             })
         return posts
 
@@ -182,6 +187,11 @@ class KonachanClient(YandereClient):
         self.base_url = KONACHAN_BASE_URL
         self._requires_auth = False
         self._reload_credentials()
+
+    def _reload_credentials(self):
+        self._api_key = self.settings.konachan_api_key or ""
+        self._cookies = self.settings.konachan_cookies or ""
+        logger.info("Konachan credentials loaded")
 
     def _get_headers(self) -> dict:
         headers = super()._get_headers()
