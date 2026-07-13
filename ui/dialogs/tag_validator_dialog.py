@@ -4,7 +4,6 @@ Tag Validator Dialog – validate, fix, and explore booru tags against
 the real Danbooru vocabulary (~140k tags).
 """
 
-import ctypes
 import logging
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit,
@@ -16,6 +15,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QColor
 
 from core.tag_validator import get_validator, CATEGORY_NAMES, TEMPLATE_PRESETS, apply_template
+from ui.windows_theme import set_dark_title_bar
 
 logger = logging.getLogger(__name__)
 
@@ -356,15 +356,7 @@ class TagValidatorDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        try:
-            hwnd = int(self.winId())
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
-            )
-        except Exception:
-            pass
+        set_dark_title_bar(self)
 
     def _glass_stylesheet(self):
         return """
