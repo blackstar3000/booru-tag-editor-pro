@@ -4,7 +4,6 @@ Fetch Post Dialog – paste a booru URL or ID, fetch tags from any source.
 """
 
 import re
-import ctypes
 import logging
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -16,6 +15,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QUrl
 from PyQt5.QtGui import QDesktopServices
 
 from core.booru_source_manager import BooruSourceManager
+from ui.windows_theme import set_dark_title_bar
 
 logger = logging.getLogger(__name__)
 
@@ -371,12 +371,4 @@ class FetchPostDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        try:
-            hwnd = int(self.winId())
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
-            )
-        except Exception:
-            pass
+        set_dark_title_bar(self)
