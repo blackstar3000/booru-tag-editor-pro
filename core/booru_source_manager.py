@@ -271,7 +271,7 @@ class BooruSourceManager(QObject):
                 merged = self._merge_search_posts(query)
                 del self._search_posts_buffers[query]
                 del self._pending_search_posts[query]
-                self.search_posts_results.emit(source_name, query, merged)
+                self.search_posts_results.emit("All Sources", query, merged)
         else:
             for post in posts:
                 post.setdefault('source', source_name)
@@ -307,9 +307,9 @@ class BooruSourceManager(QObject):
                 if query in self._pending_search_posts:
                     del self._pending_search_posts[query]
                 if merged:
-                    self.search_posts_results.emit(source_name, query, merged)
+                    self.search_posts_results.emit("All Sources", query, merged)
                 else:
-                    self.search_posts_error.emit(source_name, query, error)
+                    self.search_posts_error.emit("All Sources", query, error)
         else:
             self.search_posts_error.emit(source_name, query, error)
 
