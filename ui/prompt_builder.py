@@ -18,6 +18,7 @@ from PyQt5.QtGui import QClipboard, QGuiApplication
 from core.danbooru_tag_db import DanbooruTagDB
 from core.advanced_bulk import AdvancedBulkOperations
 from ui.tag_autocomplete import TagAutocompletePopup, TagEntry
+from ui.windows_theme import dark_question, dark_information, dark_warning, dark_critical
 import logging
 
 logger = logging.getLogger(__name__)
@@ -452,7 +453,7 @@ class PromptBuilder(QWidget):
         try:
             re.compile(pattern)
         except re.error as e:
-            QMessageBox.warning(self, "Invalid Pattern", f"'{find_pattern}' is not a valid regular expression:\n{e}")
+            dark_warning(self, "Invalid Pattern", f"'{find_pattern}' is not a valid regular expression:\n{e}")
             return
 
         old_tags = list(self.tag_order)
@@ -468,14 +469,14 @@ class PromptBuilder(QWidget):
             self._on_category_changed()
             self.update_preview()
             self._save_categories()
-            QMessageBox.information(self, "Find & Replace", f"Updated {renamed} tag(s).")
+            dark_information(self, "Find & Replace", f"Updated {renamed} tag(s).")
         else:
-            QMessageBox.information(self, "Find & Replace", "No tags matched.")
+            dark_information(self, "Find & Replace", "No tags matched.")
 
     def _open_reorder_dialog(self):
         flat = self._get_flat_order()
         if not flat:
-            QMessageBox.information(self, "Reorder Words", "There are no tags to reorder yet.")
+            dark_information(self, "Reorder Words", "There are no tags to reorder yet.")
             return
 
         dialog = QDialog(self)
@@ -526,7 +527,7 @@ class PromptBuilder(QWidget):
                 self.update_preview()
                 self._save_categories()
             else:
-                QMessageBox.warning(self, "Reorder Words", "Reordering was not applied due to an unexpected mismatch.")
+                dark_warning(self, "Reorder Words", "Reordering was not applied due to an unexpected mismatch.")
 
     def _move_tags(self, tags, from_cat, to_cat):
         moved = 0
@@ -577,7 +578,7 @@ class PromptBuilder(QWidget):
     def _clear_category(self):
         current_cat = self.category_combo.currentText()
         if current_cat in self.categories and self.categories[current_cat]:
-            if QMessageBox.question(self, "Clear Category", f"Clear all tags in '{current_cat}'?") == QMessageBox.Yes:
+            if dark_question(self, "Clear Category", f"Clear all tags in '{current_cat}'?") == QMessageBox.Yes:
                 removed = self.categories[current_cat].copy()
                 self.categories[current_cat].clear()
                 self._prune_tag_order(removed)
@@ -586,7 +587,7 @@ class PromptBuilder(QWidget):
                 self._save_categories()
 
     def clear_all(self):
-        if QMessageBox.question(self, "Clear All", "Clear all tags from all categories?") == QMessageBox.Yes:
+        if dark_question(self, "Clear All", "Clear all tags from all categories?") == QMessageBox.Yes:
             for cat in self.categories:
                 self.categories[cat].clear()
             self.tag_order = []
