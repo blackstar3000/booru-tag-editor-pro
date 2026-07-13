@@ -55,7 +55,8 @@ class SourceConfigWidget(QWidget):
             self._add_field(auth_layout, "API Key (optional)", "yandere_api_key")
             self._add_field(auth_layout, "Cookies (optional)", "yandere_cookies")
         elif self.source_name == "Konachan":
-            auth_layout.addRow(QLabel("No authentication required."))
+            self._add_field(auth_layout, "API Key (optional)", "konachan_api_key")
+            self._add_field(auth_layout, "Cookies (optional)", "konachan_cookies")
 
         layout.addWidget(auth_group)
 
