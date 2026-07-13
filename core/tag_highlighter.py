@@ -26,7 +26,7 @@ class TagHighlighter(QSyntaxHighlighter):
             tag = match.group()
             try:
                 category = self.tag_category_lookup(tag)
-            except:
+            except Exception:
                 category = 0
             color = CATEGORY_COLORS.get(category, CATEGORY_COLORS[0])
             fmt = QTextCharFormat()
