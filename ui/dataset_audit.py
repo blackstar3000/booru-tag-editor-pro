@@ -68,7 +68,8 @@ class AuditWorker(QRunnable):
             try:
                 with Image.open(img_path) as img:
                     resolutions[f"{img.width}x{img.height}"] += 1
-            except:
+            except Exception as e:
+                logger.debug(f"Failed to read image {img_path}: {e}")
                 broken_images.append(str(img_path))
 
             # Tags
@@ -80,8 +81,8 @@ class AuditWorker(QRunnable):
                             tags = [t.strip() for t in content.split(',') if t.strip()]
                             tag_counts.append(len(tags))
                             tag_counter.update(tags)
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to read tags from {txt_path}: {e}")
 
             # Progress
             self.signals.progress.emit(i + 1, total)
