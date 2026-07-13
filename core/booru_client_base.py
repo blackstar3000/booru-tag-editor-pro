@@ -13,6 +13,14 @@ from PyQt5.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool
 logger = logging.getLogger(__name__)
 
 CACHE_TTL = 3600
+
+
+def _normalize_tag(tag: str) -> str:
+    """Normalize a tag for booru API queries: lowercase, underscores, no backslashes."""
+    return (tag.strip().lower()
+            .replace(" ", "_")
+            .replace("\\(", "(")
+            .replace("\\)", ")"))
 REQUESTS_PER_SECOND = 5
 RATE_LIMIT_BURST = 3
 APP_USER_AGENT = "BooruTagEditorPro/1.0 (user: bossgame; contact: bossgame@example.com)"
@@ -318,6 +326,9 @@ class BooruClientBase(QObject):
                     self.tag_info_fetched.emit(self.source_name, tag, info)
                 else:
                     self.tag_info_error.emit(self.source_name, tag, "Tag not found")
+            elif self._cf_blocked(response):
+                self.tag_info_error.emit(self.source_name, tag,
+                    "Cloudflare blocked — check cookies/credentials or try again later")
             else:
                 self.tag_info_error.emit(self.source_name, tag, f"HTTP {response.status_code}")
         except Exception as e:
@@ -348,6 +359,9 @@ class BooruClientBase(QObject):
                 tags = self._parse_tag_search(data, query)
                 self._autocomplete_cache.put(query, tags)
                 self.autocomplete_results.emit(self.source_name, query, tags)
+            elif self._cf_blocked(response):
+                self.autocomplete_error.emit(self.source_name, query,
+                    "Cloudflare blocked — check cookies/credentials or try again later")
             else:
                 self.autocomplete_error.emit(self.source_name, query, f"HTTP {response.status_code}")
         except Exception as e:
@@ -395,12 +409,22 @@ class BooruClientBase(QObject):
         """Return params for fetching posts."""
         pass
 
+    def _cf_blocked(self, response) -> bool:
+        """Detect Cloudflare challenge pages."""
+        return (response.status_code in (403, 422, 503)
+                and 'text/html' in response.headers.get('content-type', '')
+                and ('Just a moment' in response.text[:500]
+                     or 'challenge-platform' in response.text[:500]))
+
     def _handle_example_posts_response(self, tag, response):
         try:
             if response.status_code == 200:
                 data = response.json()
                 posts = self._parse_posts(data, tag)[:3]
                 self.example_posts_fetched.emit(self.source_name, tag, posts)
+            elif self._cf_blocked(response):
+                self.example_posts_error.emit(self.source_name, tag,
+                    "Cloudflare blocked — check cookies/credentials or try again later")
             else:
                 self.example_posts_error.emit(self.source_name, tag, f"HTTP {response.status_code}")
         except Exception as e:
@@ -421,6 +445,9 @@ class BooruClientBase(QObject):
                 data = response.json()
                 posts = self._parse_posts(data, query)
                 self.search_posts_results.emit(self.source_name, query, posts)
+            elif self._cf_blocked(response):
+                self.search_posts_error.emit(self.source_name, query,
+                    "Cloudflare blocked — check cookies/credentials or try again later")
             else:
                 self.search_posts_error.emit(self.source_name, query, f"HTTP {response.status_code}")
         except Exception as e:
