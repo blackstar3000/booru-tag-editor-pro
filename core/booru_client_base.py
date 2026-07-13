@@ -146,6 +146,8 @@ class BooruClientBase(QObject):
     example_posts_error = pyqtSignal(str, str, str)      # (source_name, tag, error)
     post_fetched = pyqtSignal(str, dict)                  # (source_name, post_data)
     post_fetch_error = pyqtSignal(str, str)               # (source_name, error)
+    search_posts_results = pyqtSignal(str, str, list)    # (source_name, query, posts)
+    search_posts_error = pyqtSignal(str, str, str)       # (source_name, query, error)
     preview_loaded = pyqtSignal(str, str, int, object)   # (source_name, tag, index, pixmap)
     credentials_missing = pyqtSignal(str)                # (source_name)
 
@@ -278,6 +280,10 @@ class BooruClientBase(QObject):
             post_id = item['tag']
             worker.signals.finished.connect(lambda resp, pid=post_id: self._handle_fetch_post_response(pid, resp))
             worker.signals.error.connect(lambda err, pid=post_id: self.post_fetch_error.emit(self.source_name, err))
+        elif item['type'] == 'search_posts':
+            query = item['tag']
+            worker.signals.finished.connect(lambda resp, q=query: self._handle_search_posts_response(q, resp))
+            worker.signals.error.connect(lambda err, q=query: self.search_posts_error.emit(self.source_name, q, err))
 
         self._threadpool.start(worker)
 
@@ -399,6 +405,26 @@ class BooruClientBase(QObject):
                 self.example_posts_error.emit(self.source_name, tag, f"HTTP {response.status_code}")
         except Exception as e:
             self.example_posts_error.emit(self.source_name, tag, f"Error: {e}")
+        self._process_queue()
+
+    def search_posts(self, query: str, limit: int = 20):
+        """Search for posts by tag query, returning up to limit results."""
+        if not query or not self._enabled:
+            return
+        params = self._get_posts_params(query)
+        params['limit'] = limit
+        self._enqueue_request('search_posts', self._get_posts_endpoint(), params, tag=query)
+
+    def _handle_search_posts_response(self, query, response):
+        try:
+            if response.status_code == 200:
+                data = response.json()
+                posts = self._parse_posts(data, query)
+                self.search_posts_results.emit(self.source_name, query, posts)
+            else:
+                self.search_posts_error.emit(self.source_name, query, f"HTTP {response.status_code}")
+        except Exception as e:
+            self.search_posts_error.emit(self.source_name, query, f"Error: {e}")
         self._process_queue()
 
     def fetch_preview_image(self, tag: str, index: int, url: str):
