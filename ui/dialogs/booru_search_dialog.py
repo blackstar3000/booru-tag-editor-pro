@@ -336,6 +336,25 @@ class BooruSearchDialog(QDialog):
         # Close button
         btn_row = QHBoxLayout()
         btn_row.addStretch()
+
+        self.help_btn = QPushButton("? Help")
+        self.help_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(139,92,246,0.15);
+                color: #a78bfa;
+                border: 1px solid rgba(139,92,246,0.3);
+                border-radius: 6px;
+                padding: 8px 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: rgba(139,92,246,0.35);
+                color: #fff;
+            }
+        """)
+        self.help_btn.clicked.connect(self._open_help)
+        btn_row.addWidget(self.help_btn)
+
         close_btn = QPushButton("Close")
         close_btn.setStyleSheet("""
             QPushButton {
@@ -625,6 +644,11 @@ class BooruSearchDialog(QDialog):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
+
+    def _open_help(self):
+        from ui.dialogs.booru_search_help import BooruSearchHelpDialog
+        dlg = BooruSearchHelpDialog(self)
+        dlg.exec_()
 
     def showEvent(self, event):
         super().showEvent(event)
