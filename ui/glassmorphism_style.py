@@ -30,26 +30,6 @@ QMenuBar::item {
 QMenuBar::item:selected {
     background: rgba(139, 92, 246, 0.2);
 }
-QMenu {
-    background: rgba(18, 20, 28, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 6px;
-}
-QMenu::item {
-    padding: 8px 20px;
-    border-radius: 6px;
-    color: #ccc;
-}
-QMenu::item:selected {
-    background: rgba(139, 92, 246, 0.25);
-    color: #fff;
-}
-QMenu::separator {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.06);
-    margin: 4px 10px;
-}
 
 /* ── Toolbar ───────────────────────────────────────────────────── */
 QToolBar {
@@ -172,15 +152,6 @@ QComboBox::down-arrow {
     border-right: 4px solid transparent;
     border-top: 5px solid #888;
     margin-right: 8px;
-}
-QComboBox QAbstractItemView {
-    background: rgba(18, 20, 28, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 4px;
-    selection-background-color: rgba(139, 92, 246, 0.25);
-    color: #ccc;
-    outline: none;
 }
 
 /* ── List Widget (Filmstrip / Smart Tools) ─────────────────────── */
@@ -384,6 +355,51 @@ QDialog {
     background: #0d0f14;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
+}
+
+/* ── Popup / Dropdown (separate top-level windows) ─────────────── */
+QMenu {
+    background: rgba(18, 20, 28, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 8px 20px;
+    border-radius: 6px;
+    color: #ccc;
+}
+QMenu::item:selected {
+    background: rgba(139, 92, 246, 0.25);
+    color: #fff;
+}
+QMenu::separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 10px;
+}
+QComboBox QAbstractItemView {
+    background: rgba(18, 20, 28, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
+    padding: 4px;
+    selection-background-color: rgba(139, 92, 246, 0.25);
+    color: #ccc;
+    outline: none;
+}
+QComboBox QAbstractItemView::item {
+    background: transparent;
+    padding: 6px 12px;
+    color: #ccc;
+    border: none;
+    border-radius: 0;
+}
+QComboBox QAbstractItemView::item:selected {
+    background: rgba(139, 92, 246, 0.25);
+    color: #fff;
+}
+QComboBox QAbstractItemView::item:hover:!selected {
+    background: rgba(255, 255, 255, 0.05);
 }
 
 /* ── Message Box ───────────────────────────────────────────────── */
