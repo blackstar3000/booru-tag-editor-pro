@@ -4,7 +4,7 @@
 import logging
 from typing import Any
 
-from core.booru_client_base import BooruClientBase
+from core.booru_client_base import BooruClientBase, _normalize_tag
 from core.settings_manager import SettingsManager
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ class DanbooruClient(BooruClientBase):
         return "posts.json"
 
     def _get_tag_search_params(self, tag: str) -> dict:
-        return {'search[name]': tag}
+        return {'search[name]': _normalize_tag(tag)}
 
     def _get_autocomplete_params(self, query: str) -> dict:
         return {'search[name_matches]': f'{query}*', 'limit': 10}
