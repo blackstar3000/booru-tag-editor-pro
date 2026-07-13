@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
+from ui.windows_theme import set_dark_title_bar, dark_question, dark_warning
+
 
 class SaveWorkspaceDialog(QDialog):
     """Dialog for saving the current workspace state."""
@@ -49,10 +51,10 @@ class SaveWorkspaceDialog(QDialog):
     def _on_save(self):
         name = self.name_input.text().strip()
         if not name:
-            QMessageBox.warning(self, "Missing Name", "Please enter a workspace name.")
+            dark_warning(self, "Missing Name", "Please enter a workspace name.")
             return
         if name.lower() in self.existing_names and self.radio_new.isChecked():
-            reply = QMessageBox.question(
+            reply = dark_question(
                 self, "Overwrite?",
                 f"A workspace named '{name}' already exists.\nOverwrite it?",
                 QMessageBox.Yes | QMessageBox.No,
@@ -68,3 +70,7 @@ class SaveWorkspaceDialog(QDialog):
 
     def result_mode(self) -> str:
         return self._result_mode
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        set_dark_title_bar(self)
