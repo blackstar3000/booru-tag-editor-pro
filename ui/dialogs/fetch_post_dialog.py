@@ -9,9 +9,9 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QComboBox, QPushButton, QTableWidget, QTableWidgetItem,
     QProgressBar, QGroupBox, QCheckBox, QMessageBox, QHeaderView,
-    QTextEdit, QSplitter, QWidget
+    QTextEdit, QSplitter, QWidget, QFrame
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QUrl
+from PyQt5.QtCore import Qt, pyqtSignal, QUrl, QEvent
 from PyQt5.QtGui import QDesktopServices
 
 from core.booru_source_manager import BooruSourceManager
@@ -91,6 +91,7 @@ class FetchPostDialog(QDialog):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 8, 12, 12)
 
         # URL input row
         url_row = QHBoxLayout()
@@ -249,6 +250,24 @@ class FetchPostDialog(QDialog):
 
         btn_row.addStretch()
 
+        self.help_btn = QPushButton("? Help")
+        self.help_btn.setStyleSheet("""
+            QPushButton {
+                background: rgba(139,92,246,0.15);
+                color: #a78bfa;
+                border: 1px solid rgba(139,92,246,0.3);
+                border-radius: 6px;
+                padding: 8px 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: rgba(139,92,246,0.35);
+                color: #fff;
+            }
+        """)
+        self.help_btn.clicked.connect(self._open_help)
+        btn_row.addWidget(self.help_btn)
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.close)
         btn_row.addWidget(close_btn)
@@ -368,6 +387,11 @@ class FetchPostDialog(QDialog):
         if self._selected_tags:
             self.tags_fetched.emit(self._selected_tags)
             self.status_label.setText(f"Replaced with {len(self._selected_tags)} tags.")
+
+    def _open_help(self):
+        from ui.dialogs.fetch_post_help import FetchPostHelpDialog
+        dlg = FetchPostHelpDialog(self)
+        dlg.exec_()
 
     def showEvent(self, event):
         super().showEvent(event)
