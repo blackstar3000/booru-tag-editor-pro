@@ -17,7 +17,8 @@ class AdvancedBulkOperations:
     def apply_regex_find_replace(tags: List[str], find_pattern: str, replace_pattern: str) -> List[str]:
         try:
             return [re.sub(find_pattern, replace_pattern, t) for t in tags]
-        except:
+        except re.error as e:
+            logger.warning(f"Invalid regex pattern '{find_pattern}': {e}")
             return tags
 
     @staticmethod
@@ -58,7 +59,8 @@ class AdvancedBulkOperations:
     def apply_remove_by_pattern(tags: List[str], pattern: str) -> List[str]:
         try:
             return [t for t in tags if not re.search(pattern, t)]
-        except:
+        except re.error as e:
+            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
             return tags
 
     @staticmethod
