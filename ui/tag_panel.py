@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QRect, QPoint
 from core.tag_manager import TagManager
 from core.booru_source_manager import BooruSourceManager
 from core.danbooru_tag_db import DanbooruTagDB
+from core.booru_client_base import _normalize_tag
 from ui.tag_inspector import TagInspector
 from ui.tag_autocomplete import TagAutocompletePopup, TagEntry
 import logging
@@ -84,6 +85,21 @@ class TagPanel(QWidget):
         self.tag_list.orderChanged.connect(self._on_order_changed)
         layout.addWidget(self.tag_list)
 
+        # Bottom row: Validate button
+        bottom_row = QHBoxLayout()
+        bottom_row.addStretch()
+        self.validate_btn = QPushButton("✅ Validate Tags")
+        self.validate_btn.setStyleSheet(
+            "QPushButton { padding: 4px 12px; font-size: 11px; "
+            "background: rgba(16, 185, 129, 0.15); "
+            "border: 1px solid rgba(16, 185, 129, 0.25); "
+            "border-radius: 6px; color: #6ee7b7; }"
+            "QPushButton:hover { background: rgba(16, 185, 129, 0.3); }"
+        )
+        self.validate_btn.clicked.connect(self._validate_tags)
+        bottom_row.addWidget(self.validate_btn)
+        layout.addLayout(bottom_row)
+
     def setup_autocomplete(self):
         self._autocomplete_popup = TagAutocompletePopup(self)
         self._autocomplete_popup.install_on(self.add_input)
@@ -149,7 +165,7 @@ class TagPanel(QWidget):
         self.inspector.clear()
         self.inspector.show()
         self.inspector.raise_()
-        self._current_inspected_tag = tag
+        self._current_inspected_tag = _normalize_tag(tag)
         if self.source_manager:
             self.source_manager.fetch_tag_info(tag)
             self.source_manager.fetch_wiki(tag)
@@ -226,6 +242,20 @@ class TagPanel(QWidget):
         if text:
             self.tag_manager.add_tag(text)
             self.add_input.clear()
+
+    def _validate_tags(self):
+        """Open Tag Validator with current tags."""
+        from ui.dialogs.tag_validator_dialog import TagValidatorDialog
+        dlg = TagValidatorDialog(parent=self.window())
+        dlg.tags_validated.connect(self._on_validated_tags)
+        current_tags = ", ".join(self.all_tags)
+        if current_tags:
+            dlg.input_edit.setPlainText(current_tags)
+        dlg.exec_()
+
+    def _on_validated_tags(self, output, kept, dropped):
+        """Replace tags with validated ones."""
+        self.tag_manager.set_tags(kept)
 
     def _show_context_menu(self, pos):
         menu = QMenu()
