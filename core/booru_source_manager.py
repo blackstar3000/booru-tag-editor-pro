@@ -31,6 +31,8 @@ class BooruSourceManager(QObject):
     preview_loaded = pyqtSignal(str, int, object)         # (tag, index, pixmap)
     post_fetched = pyqtSignal(str, dict)                   # (source_name, post_data)
     post_fetch_error = pyqtSignal(str, str)                # (source_name, error)
+    search_posts_results = pyqtSignal(str, str, list)    # (source_name, query, posts)
+    search_posts_error = pyqtSignal(str, str, str)       # (source_name, query, error)
     credentials_missing = pyqtSignal()
 
     def __init__(self, settings: SettingsManager):
@@ -40,6 +42,8 @@ class BooruSourceManager(QObject):
         self._source_order: List[str] = []
         self._autocomplete_buffers: Dict[str, dict] = {}  # query -> {source_name: tags}
         self._pending_autocomplete: Dict[str, int] = {}   # query -> remaining sources
+        self._search_posts_buffers: Dict[str, dict] = {}  # query -> {source_name: posts}
+        self._pending_search_posts: Dict[str, int] = {}   # query -> remaining sources
 
     def register_client(self, client: BooruClientBase):
         """Register a booru client as an available source."""
@@ -59,6 +63,8 @@ class BooruSourceManager(QObject):
         client.preview_loaded.connect(self._on_client_preview)
         client.post_fetched.connect(self._on_client_post_fetched)
         client.post_fetch_error.connect(self._on_client_post_fetch_error)
+        client.search_posts_results.connect(self._on_client_search_posts)
+        client.search_posts_error.connect(self._on_client_search_posts_error)
         client.credentials_missing.connect(self._on_client_credentials_missing)
 
         logger.info(f"Registered booru source: {client.source_name}")
@@ -151,6 +157,24 @@ class BooruSourceManager(QObject):
             return
         self.post_fetch_error.emit("", "No enabled sources")
 
+    def search_posts(self, query: str, source_name: str = None, limit: int = 20):
+        """Search for posts by tag from a specific source, or all enabled sources."""
+        if source_name:
+            client = self.get_client(source_name)
+            if client and client.enabled:
+                client.search_posts(query, limit)
+                return
+            self.search_posts_error.emit(source_name, query, f"Source '{source_name}' not available")
+            return
+        enabled = self.get_enabled_clients()
+        if not enabled:
+            self.search_posts_error.emit("", query, "No enabled sources")
+            return
+        self._search_posts_buffers[query] = {}
+        self._pending_search_posts[query] = len(enabled)
+        for client in enabled:
+            client.search_posts(query, limit)
+
     # --- Signal handlers ---
 
     def _on_client_autocomplete(self, source_name, query, tags):
@@ -233,6 +257,55 @@ class BooruSourceManager(QObject):
 
     def _on_client_post_fetch_error(self, source_name, error):
         self.post_fetch_error.emit(source_name, error)
+
+    def _on_client_search_posts(self, source_name, query, posts):
+        if query in self._search_posts_buffers:
+            self._search_posts_buffers[query][source_name] = posts
+            self._pending_search_posts[query] -= 1
+
+            if self._pending_search_posts[query] <= 0:
+                merged = self._merge_search_posts(query)
+                del self._search_posts_buffers[query]
+                del self._pending_search_posts[query]
+                self.search_posts_results.emit(source_name, query, merged)
+        else:
+            self.search_posts_results.emit(source_name, query, posts)
+
+    def _merge_search_posts(self, query: str) -> list:
+        """Merge search results from all sources."""
+        buffers = self._search_posts_buffers.get(query, {})
+        seen = set()
+        merged = []
+        for source_name in self._source_order:
+            if source_name not in buffers:
+                continue
+            for post in buffers[source_name]:
+                post_id = post.get('id')
+                if not post_id:
+                    continue
+                key = f"{source_name}:{post_id}"
+                if key not in seen:
+                    seen.add(key)
+                    post['source'] = source_name
+                    merged.append(post)
+        return merged
+
+    def _on_client_search_posts_error(self, source_name, query, error):
+        logger.warning(f"Search posts error from {source_name} for '{query}': {error}")
+        if query in self._pending_search_posts:
+            self._pending_search_posts[query] -= 1
+            if self._pending_search_posts[query] <= 0:
+                merged = self._merge_search_posts(query) if query in self._search_posts_buffers else []
+                if query in self._search_posts_buffers:
+                    del self._search_posts_buffers[query]
+                if query in self._pending_search_posts:
+                    del self._pending_search_posts[query]
+                if merged:
+                    self.search_posts_results.emit(source_name, query, merged)
+                else:
+                    self.search_posts_error.emit(source_name, query, error)
+        else:
+            self.search_posts_error.emit(source_name, query, error)
 
     def _on_client_credentials_missing(self, source_name):
         logger.info(f"Credentials missing for {source_name}")
