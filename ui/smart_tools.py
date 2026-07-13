@@ -61,15 +61,15 @@ class CollectionApplyWorker(QRunnable):
                     content = f.read().strip()
                     if content:
                         metadata['tags'] = [t.strip() for t in content.split(',') if t.strip()]
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to read tags from {txt_path}: {e}")
         try:
             from PIL import Image
             with Image.open(path) as img:
                 metadata['width'] = img.width
                 metadata['height'] = img.height
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to read image dimensions for {path}: {e}")
         return metadata
 
 # --- Advanced Bulk Worker ---
@@ -103,7 +103,8 @@ class BulkWorker(QRunnable):
                     with open(txt_path, 'r', encoding='utf-8') as f:
                         content = f.read().strip()
                         tags = [t.strip() for t in content.split(',') if t.strip()] if content else []
-                except:
+                except Exception as e:
+                    logger.debug(f"Failed to read tags from {txt_path}: {e}")
                     tags = []
                 original = tags.copy()
                 # Apply operation
@@ -151,8 +152,8 @@ class BulkWorker(QRunnable):
                 with open(txt_path, 'w', encoding='utf-8') as f:
                     f.write(new_tags_str)
                 written += 1
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to write tags to {txt_path}: {e}")
         return written
 
 
@@ -389,7 +390,7 @@ class SmartTools(QWidget):
             if ctype in ["tag_count", "width", "height"]:
                 try:
                     val = int(val)
-                except:
+                except ValueError:
                     QMessageBox.warning(self, "Error", f"{ctype} requires a number.")
                     return
             conditions.append({"type": ctype, "value": val, "operator": cop})
@@ -525,7 +526,7 @@ class SmartTools(QWidget):
                 merge_map_str = self._get_param_value('merge_map')
                 try:
                     merge_map = json.loads(merge_map_str)
-                except:
+                except json.JSONDecodeError:
                     raise ValueError("Invalid JSON for merge map.")
                 params['merge_map'] = merge_map
             elif op == "Split Tags":
@@ -543,7 +544,7 @@ class SmartTools(QWidget):
                 rename_map_str = self._get_param_value('rename_map')
                 try:
                     rename_map = json.loads(rename_map_str)
-                except:
+                except json.JSONDecodeError:
                     raise ValueError("Invalid JSON for rename map.")
                 params['rename_map'] = rename_map
             elif op == "Remove by Pattern":
